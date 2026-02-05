@@ -80,6 +80,17 @@ class ApiService {
     const response = await this.client.get('/health');
     return response.data;
   }
+
+  // Generic methods for additional endpoints
+  async post<T = any>(endpoint: string, data?: any): Promise<T> {
+    const response = await this.client.post(endpoint, data);
+    return response.data;
+  }
+
+  async get<T = any>(endpoint: string, params?: any): Promise<T> {
+    const response = await this.client.get(endpoint, { params });
+    return response.data;
+  }
 }
 
 export const api = new ApiService();

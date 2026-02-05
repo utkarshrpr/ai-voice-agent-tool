@@ -12,7 +12,7 @@ class LLMService:
     def __init__(self):
         if settings.anthropic_api_key:
             self.client = Anthropic(api_key=settings.anthropic_api_key)
-            self.model = "claude-3-5-sonnet-20241022"
+            self.model = "claude-3-5-sonnet-20241022"  # Claude 3.5 Sonnet v2
         else:
             # Could add OpenAI support here
             raise ValueError("No LLM API key configured. Please set ANTHROPIC_API_KEY.")

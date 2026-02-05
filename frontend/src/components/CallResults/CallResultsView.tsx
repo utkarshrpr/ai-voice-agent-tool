@@ -1,13 +1,42 @@
+import { useState } from 'react';
 import CallStatusIndicator from '../CallTrigger/CallStatusIndicator';
 import StructuredDataDisplay from './StructuredDataDisplay';
 import TranscriptDisplay from './TranscriptDisplay';
+import api from '../../services/api';
 import type { Call } from '../../types';
 
 interface Props {
   call: Call;
+  onUpdate?: () => void;
 }
 
-export default function CallResultsView({ call }: Props) {
+export default function CallResultsView({ call, onUpdate }: Props) {
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const handleFetchTranscript = async () => {
+    setFetching(true);
+    setFetchError(null);
+
+    try {
+      const result = await api.post(`/calls/${call.id}/fetch-transcript`);
+      console.log('Transcript fetched:', result);
+
+      // Trigger parent to refresh call data
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch transcript:', err);
+      setFetchError(err.response?.data?.detail || 'Failed to fetch transcript');
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const callEnded = call.status === 'completed' || call.status === 'failed';
+  const hasTranscript = call.transcript && call.transcript.length > 0;
+  const needsFetch = callEnded && !hasTranscript;
   return (
     <div className="bg-white shadow rounded-lg p-6 space-y-6">
       {/* Call Metadata */}
@@ -57,31 +86,55 @@ export default function CallResultsView({ call }: Props) {
         </div>
       </div>
 
-      {/* Structured Data */}
-      {call.structured_data ? (
-        <StructuredDataDisplay data={call.structured_data} />
-      ) : call.status === 'completed' ? (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
-          Structured data is being processed. Please refresh in a moment.
-        </div>
-      ) : (
-        <div className="bg-gray-50 border border-gray-200 text-gray-600 px-4 py-3 rounded">
-          No structured data available yet.
+      {/* Fetch Transcript Button */}
+      {needsFetch && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-900">
+                Transcript not yet fetched
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Click the button to fetch the transcript from Retell AI
+              </p>
+            </div>
+            <button
+              onClick={handleFetchTranscript}
+              disabled={fetching}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300"
+            >
+              {fetching ? 'Fetching...' : 'Fetch Transcript'}
+            </button>
+          </div>
+          {fetchError && (
+            <div className="mt-2 text-sm text-red-600">
+              Error: {fetchError}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Transcript */}
-      {call.transcript && call.transcript.length > 0 ? (
-        <TranscriptDisplay transcript={call.transcript} />
-      ) : call.status === 'completed' ? (
+      {/* Structured Data */}
+      {call.structured_data ? (
+        <StructuredDataDisplay data={call.structured_data} />
+      ) : hasTranscript ? (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
-          Transcript is being processed.
+          Structured data is being processed. Please refresh in a moment.
         </div>
-      ) : (
+      ) : !callEnded ? (
         <div className="bg-gray-50 border border-gray-200 text-gray-600 px-4 py-3 rounded">
-          No transcript available yet.
+          Call has not ended yet. No structured data available.
         </div>
-      )}
+      ) : null}
+
+      {/* Transcript */}
+      {hasTranscript ? (
+        <TranscriptDisplay transcript={call.transcript} />
+      ) : !callEnded ? (
+        <div className="bg-gray-50 border border-gray-200 text-gray-600 px-4 py-3 rounded">
+          Call has not ended yet. No transcript available.
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -125,6 +125,13 @@ class SupabaseService:
         if "transcript" in data and data["transcript"]:
             data["transcript"] = [entry.model_dump() if hasattr(entry, "model_dump") else entry for entry in data["transcript"]]
 
+        # Convert datetime objects to ISO format strings
+        from datetime import datetime
+        if "started_at" in data and isinstance(data["started_at"], datetime):
+            data["started_at"] = data["started_at"].isoformat()
+        if "ended_at" in data and isinstance(data["ended_at"], datetime):
+            data["ended_at"] = data["ended_at"].isoformat()
+
         if not data:
             return await self.get_call(call_id)
 

@@ -90,10 +90,18 @@ export default function CallTriggerForm({ agents, onCallComplete }: Props) {
         startDurationTimer();
       });
 
-      retellClient.on('call_ended', () => {
-        console.log('Call ended');
+      retellClient.on('call_ended', async () => {
+        console.log('Call ended - backend poller will detect and update status automatically');
         setCallState('ended');
         stopDurationTimer();
+
+        // Note: Backend polling service automatically:
+        // 1. Detects call ended in Retell AI
+        // 2. Updates call status to COMPLETED
+        // 3. Fetches transcript from Retell AI
+        // 4. Extracts structured data
+        // No manual intervention needed!
+
         setTimeout(() => {
           setCallState('idle');
           onCallComplete();

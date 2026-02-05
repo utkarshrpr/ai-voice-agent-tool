@@ -51,6 +51,20 @@ export default function CallHistory() {
     }
   };
 
+  const handleCallUpdate = async () => {
+    // Refresh the selected call after transcript fetch
+    if (selectedCall) {
+      try {
+        const updatedCall = await api.getCall(selectedCall.id);
+        setSelectedCall(updatedCall);
+        // Also refresh the list
+        loadCalls();
+      } catch (err) {
+        console.error('Failed to refresh call:', err);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -143,7 +157,7 @@ export default function CallHistory() {
         {/* Call Details */}
         <div className="lg:col-span-2">
           {selectedCall ? (
-            <CallResultsView call={selectedCall} />
+            <CallResultsView call={selectedCall} onUpdate={handleCallUpdate} />
           ) : (
             <div className="bg-white shadow rounded-lg p-6 flex items-center justify-center h-96">
               <div className="text-center text-gray-500">
