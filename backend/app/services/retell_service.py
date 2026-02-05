@@ -129,10 +129,10 @@ class RetellService:
             }
 
     async def get_call_details(self, call_id: str) -> Dict[str, Any]:
-        """Get call details from Retell AI."""
+        """Get call details from Retell AI using v2 API."""
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{self.BASE_URL}/get-call/{call_id}",
+                f"{self.BASE_URL_V2}/get-call/{call_id}",
                 headers=self.headers,
                 timeout=30.0
             )

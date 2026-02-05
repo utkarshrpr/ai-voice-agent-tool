@@ -23,11 +23,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting AI Voice Agent Tool API")
-    await call_poller.start()
+    # Note: Background poller disabled - using on-demand sync when call ends
+    # await call_poller.start()
     yield
     # Shutdown
     logger.info("Shutting down AI Voice Agent Tool API")
-    await call_poller.stop()
+    # await call_poller.stop()
 
 
 # Initialize FastAPI app

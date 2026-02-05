@@ -276,14 +276,15 @@ async def get_call(call_id: str):
         )
 
 
-@router.post("/{call_id}/mark-ended", status_code=status.HTTP_200_OK)
-async def mark_call_ended(call_id: str):
+@router.post("/{call_id}/sync-from-retell", status_code=status.HTTP_200_OK)
+async def sync_call_from_retell(call_id: str):
     """
-    Mark a call as ended. Called by frontend when Retell SDK fires call_ended event.
-    This is the webhook alternative - frontend tells backend when call ends.
+    Fetch call status and transcript from Retell AI and update database.
+    Called by frontend when call ends.
     """
     try:
         db = SupabaseService()
+        retell = RetellService()
 
         # Get call from database
         call = await db.get_call(call_id)
@@ -293,28 +294,151 @@ async def mark_call_ended(call_id: str):
                 detail="Call not found"
             )
 
-        # Only update if not already ended
-        if call.status not in [CallStatus.COMPLETED, CallStatus.FAILED]:
-            from datetime import datetime
-
-            update = CallUpdate(
-                status=CallStatus.COMPLETED,
-                ended_at=datetime.now()
+        if not call.retell_call_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Call does not have a Retell call ID"
             )
 
-            await db.update_call(call_id, update)
+        # Fetch call details from Retell AI
+        try:
+            call_details = await retell.get_call_details(call.retell_call_id)
 
-            # Log event
-            await db.create_call_event(
-                call_id=call_id,
-                event_type="call_ended_by_client",
-                event_data={"source": "frontend_sdk"}
+            # Log the response type and content for debugging
+            print(f"Retell API response type: {type(call_details)}")
+            print(f"Retell API response: {call_details}")
+
+            # Ensure we got a dictionary
+            if not isinstance(call_details, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Invalid response from Retell API: expected dict, got {type(call_details).__name__}"
+                )
+        except Exception as e:
+            print(f"Error fetching from Retell API: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch from Retell API: {str(e)}"
             )
+
+        # Extract status
+        retell_status = (call_details.get("call_status") or call_details.get("status", "")).lower()
+
+        # Map Retell status to our status
+        if retell_status in ["ended", "completed", "done"]:
+            new_status = CallStatus.COMPLETED
+        elif retell_status in ["ongoing", "in_progress", "active"]:
+            new_status = CallStatus.IN_PROGRESS
+        elif retell_status in ["error", "failed"]:
+            new_status = CallStatus.FAILED
+        else:
+            new_status = CallStatus.COMPLETED  # Default to completed if call_ended fired
+
+        # Extract transcript - handle both string and list formats
+        transcript_data = call_details.get("transcript", [])
+        transcript = []
+
+        if isinstance(transcript_data, str):
+            # Transcript is a formatted string - parse it
+            lines = transcript_data.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Parse format: "Agent: text" or "User: text"
+                if line.startswith("Agent:"):
+                    transcript.append(TranscriptEntry(
+                        role="agent",
+                        content=line[6:].strip(),  # Remove "Agent:" prefix
+                        timestamp=None
+                    ))
+                elif line.startswith("User:"):
+                    transcript.append(TranscriptEntry(
+                        role="user",
+                        content=line[5:].strip(),  # Remove "User:" prefix
+                        timestamp=None
+                    ))
+        elif isinstance(transcript_data, list):
+            # Transcript is already a list of objects
+            for entry in transcript_data:
+                transcript.append(TranscriptEntry(
+                    role="agent" if entry.get("role") == "agent" else "user",
+                    content=entry.get("content", ""),
+                    timestamp=entry.get("timestamp")
+                ))
+
+        # Get call duration and timestamps
+        from datetime import datetime
+
+        # Duration might be in different fields
+        call_duration = call_details.get("call_duration") or call_details.get("duration_ms")
+        if call_duration and call_duration > 1000:
+            # Convert from milliseconds to seconds
+            call_duration = call_duration // 1000
+
+        # Timestamps come as milliseconds since epoch
+        end_timestamp_ms = call_details.get("end_timestamp")
+        start_timestamp_ms = call_details.get("start_timestamp")
+
+        ended_at = None
+        if end_timestamp_ms:
+            # Convert milliseconds to seconds and create datetime
+            ended_at = datetime.fromtimestamp(end_timestamp_ms / 1000)
+
+        started_at = None
+        if start_timestamp_ms:
+            started_at = datetime.fromtimestamp(start_timestamp_ms / 1000)
+
+        # Update call with all info
+        update = CallUpdate(
+            status=new_status,
+            transcript=transcript,
+            call_duration=call_duration,
+            started_at=started_at,
+            ended_at=ended_at or datetime.now()
+        )
+
+        await db.update_call(call_id, update)
+
+        # Log event
+        await db.create_call_event(
+            call_id=call_id,
+            event_type="synced_from_retell",
+            event_data={
+                "retell_status": retell_status,
+                "transcript_entries": len(transcript)
+            }
+        )
+
+        # Extract structured data if we have transcript and agent config
+        if transcript:
+            agent = await db.get_agent_config(call.agent_config_id)
+            if agent:
+                try:
+                    llm = LLMService()
+                    structured_data = await llm.extract_structured_data(
+                        transcript=transcript,
+                        scenario_type=agent.scenario_type,
+                        driver_name=call.driver_name,
+                        load_number=call.load_number
+                    )
+                    await db.update_call(call_id, CallUpdate(structured_data=structured_data))
+
+                    await db.create_call_event(
+                        call_id=call_id,
+                        event_type="structured_data_extracted",
+                        event_data={"scenario_type": agent.scenario_type}
+                    )
+                except Exception as e:
+                    print(f"Failed to extract structured data: {e}")
 
         return {
             "status": "success",
-            "message": "Call marked as ended",
-            "call_id": call_id
+            "message": "Call synced from Retell AI",
+            "call_status": new_status,
+            "transcript_entries": len(transcript),
+            "has_structured_data": call.structured_data is not None
         }
 
     except HTTPException:
@@ -322,7 +446,7 @@ async def mark_call_ended(call_id: str):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to mark call as ended: {str(e)}"
+            detail=f"Failed to sync call from Retell: {str(e)}"
         )
 
 

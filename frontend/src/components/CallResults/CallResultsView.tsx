@@ -12,7 +12,9 @@ interface Props {
 
 export default function CallResultsView({ call, onUpdate }: Props) {
   const [fetching, setFetching] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const handleFetchTranscript = async () => {
     setFetching(true);
@@ -31,6 +33,26 @@ export default function CallResultsView({ call, onUpdate }: Props) {
       setFetchError(err.response?.data?.detail || 'Failed to fetch transcript');
     } finally {
       setFetching(false);
+    }
+  };
+
+  const handleSyncFromRetell = async () => {
+    setSyncing(true);
+    setSyncError(null);
+
+    try {
+      const result = await api.post(`/calls/${call.id}/sync-from-retell`);
+      console.log('Synced from Retell:', result);
+
+      // Trigger parent to refresh call data
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err: any) {
+      console.error('Failed to sync from Retell:', err);
+      setSyncError(err.response?.data?.detail || 'Failed to sync from Retell');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -86,7 +108,33 @@ export default function CallResultsView({ call, onUpdate }: Props) {
         </div>
       </div>
 
-      {/* Fetch Transcript Button */}
+      {/* Sync from Retell Button */}
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-green-900">
+              Sync Call Details from Retell AI
+            </p>
+            <p className="text-xs text-green-700 mt-1">
+              Fetch latest status, transcript, and call details from Retell AI
+            </p>
+          </div>
+          <button
+            onClick={handleSyncFromRetell}
+            disabled={syncing}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-300"
+          >
+            {syncing ? 'Syncing...' : 'Sync from Retell'}
+          </button>
+        </div>
+        {syncError && (
+          <div className="mt-2 text-sm text-red-600">
+            Error: {syncError}
+          </div>
+        )}
+      </div>
+
+      {/* Fetch Transcript Button (fallback) */}
       {needsFetch && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
