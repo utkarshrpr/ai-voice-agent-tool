@@ -22,13 +22,13 @@ export default function TranscriptDisplay({ transcript }: Props) {
   };
 
   return (
-    <div>
+    <div className="h-full flex flex-col">
       <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <MessageSquare className="w-5 h-5 text-accent-primary" />
         Call Transcript
       </h4>
 
-      <div className="glass-card p-4 max-h-96 overflow-y-auto custom-scrollbar">
+      <div className="glass-card p-4 max-h-[600px] overflow-y-auto custom-scrollbar flex-1">
         {transcript.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-8">No transcript available</p>
         ) : (

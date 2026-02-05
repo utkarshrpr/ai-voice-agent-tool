@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, Download, Clock, Calendar, User, Package, Phone as PhoneIcon, AlertCircle } from 'lucide-react';
+import { RefreshCw, Clock, Calendar, User, Package, Phone as PhoneIcon, AlertCircle } from 'lucide-react';
 import CallStatusIndicator from '../CallTrigger/CallStatusIndicator';
 import StructuredDataDisplay from './StructuredDataDisplay';
 import TranscriptDisplay from './TranscriptDisplay';
@@ -13,29 +13,8 @@ interface Props {
 }
 
 export default function CallResultsView({ call, onUpdate }: Props) {
-  const [fetching, setFetching] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
-
-  const handleFetchTranscript = async () => {
-    setFetching(true);
-    setFetchError(null);
-
-    try {
-      const result = await api.post(`/calls/${call.id}/fetch-transcript`);
-      console.log('Transcript fetched:', result);
-
-      if (onUpdate) {
-        onUpdate();
-      }
-    } catch (err: any) {
-      console.error('Failed to fetch transcript:', err);
-      setFetchError(err.response?.data?.detail || 'Failed to fetch transcript');
-    } finally {
-      setFetching(false);
-    }
-  };
 
   const handleSyncFromRetell = async () => {
     setSyncing(true);
@@ -58,7 +37,6 @@ export default function CallResultsView({ call, onUpdate }: Props) {
 
   const callEnded = call.status === 'completed' || call.status === 'failed';
   const hasTranscript = call.transcript && call.transcript.length > 0;
-  const needsFetch = callEnded && !hasTranscript;
 
   return (
     <div className="glass-card p-6 space-y-6">
@@ -133,7 +111,7 @@ export default function CallResultsView({ call, onUpdate }: Props) {
       </div>
 
       {/* Sync from Retell Button */}
-      <div className="glass-card border-accent-success/50 p-4">
+      <div className="glass-card p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-white">
@@ -148,7 +126,7 @@ export default function CallResultsView({ call, onUpdate }: Props) {
             whileTap={{ scale: 0.95 }}
             onClick={handleSyncFromRetell}
             disabled={syncing}
-            className="px-4 py-2 bg-accent-success hover:bg-accent-success/80 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 flex items-center gap-2"
+            className="btn-primary flex items-center gap-2"
           >
             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing...' : 'Sync from Retell'}
@@ -162,68 +140,43 @@ export default function CallResultsView({ call, onUpdate }: Props) {
         )}
       </div>
 
-      {/* Fetch Transcript Button (fallback) */}
-      {needsFetch && (
-        <div className="glass-card border-accent-primary/50 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-white">
-                Transcript not yet fetched
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Click the button to fetch the transcript from Retell AI
-              </p>
+      {/* Two-Column Layout: Structured Data & Transcript */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Left Column: Structured Data (40%) */}
+        <div className="lg:col-span-2">
+          {call.structured_data ? (
+            <StructuredDataDisplay data={call.structured_data} />
+          ) : hasTranscript ? (
+            <div className="glass-card border-accent-warning/50 p-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-accent-warning flex-shrink-0" />
+              <span className="text-accent-warning text-sm">
+                Structured data is being processed. Please refresh in a moment.
+              </span>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleFetchTranscript}
-              disabled={fetching}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              {fetching ? 'Fetching...' : 'Fetch Transcript'}
-            </motion.button>
-          </div>
-          {fetchError && (
-            <div className="mt-3 glass-card border-accent-danger/50 p-2 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-accent-danger flex-shrink-0" />
-              <span className="text-sm text-accent-danger">{fetchError}</span>
+          ) : !callEnded ? (
+            <div className="glass-card border-gray-600/50 p-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <span className="text-gray-400 text-sm">
+                Call has not ended yet. No structured data available.
+              </span>
             </div>
-          )}
+          ) : null}
         </div>
-      )}
 
-      {/* Structured Data */}
-      {call.structured_data ? (
-        <StructuredDataDisplay data={call.structured_data} />
-      ) : hasTranscript ? (
-        <div className="glass-card border-accent-warning/50 p-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-accent-warning flex-shrink-0" />
-          <span className="text-accent-warning">
-            Structured data is being processed. Please refresh in a moment.
-          </span>
+        {/* Right Column: Transcript (60%) */}
+        <div className="lg:col-span-3">
+          {hasTranscript ? (
+            <TranscriptDisplay transcript={call.transcript} />
+          ) : !callEnded ? (
+            <div className="glass-card border-gray-600/50 p-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <span className="text-gray-400 text-sm">
+                Call has not ended yet. No transcript available.
+              </span>
+            </div>
+          ) : null}
         </div>
-      ) : !callEnded ? (
-        <div className="glass-card border-gray-600/50 p-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-gray-400 flex-shrink-0" />
-          <span className="text-gray-400">
-            Call has not ended yet. No structured data available.
-          </span>
-        </div>
-      ) : null}
-
-      {/* Transcript */}
-      {hasTranscript ? (
-        <TranscriptDisplay transcript={call.transcript} />
-      ) : !callEnded ? (
-        <div className="glass-card border-gray-600/50 p-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-gray-400 flex-shrink-0" />
-          <span className="text-gray-400">
-            Call has not ended yet. No transcript available.
-          </span>
-        </div>
-      ) : null}
+      </div>
     </div>
   );
 }

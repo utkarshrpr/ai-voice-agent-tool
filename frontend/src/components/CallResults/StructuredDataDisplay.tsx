@@ -15,7 +15,7 @@ function isEmergencyData(data: StructuredData): data is EmergencyData {
 
 export default function StructuredDataDisplay({ data }: Props) {
   const renderCheckInData = (checkInData: CheckInData) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <DataField label="Call Outcome" value={checkInData.call_outcome} highlight />
       <DataField label="Driver Status" value={checkInData.driver_status} />
       <DataField label="Current Location" value={checkInData.current_location} />
@@ -30,7 +30,7 @@ export default function StructuredDataDisplay({ data }: Props) {
   );
 
   const renderEmergencyData = (emergencyData: EmergencyData) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <DataField
         label="Call Outcome"
         value={emergencyData.call_outcome}
@@ -78,13 +78,13 @@ export default function StructuredDataDisplay({ data }: Props) {
   );
 
   return (
-    <div>
+    <div className="h-full flex flex-col">
       <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <Database className="w-5 h-5 text-accent-primary" />
         Structured Data
       </h4>
 
-      <div className="glass-card p-4">
+      <div className="glass-card p-4 max-h-[600px] overflow-y-auto custom-scrollbar">
         {isCheckInData(data) ? (
           renderCheckInData(data)
         ) : isEmergencyData(data) ? (
@@ -93,6 +93,22 @@ export default function StructuredDataDisplay({ data }: Props) {
           <p className="text-gray-400">Unknown data format</p>
         )}
       </div>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.5);
+        }
+      `}</style>
     </div>
   );
 }
