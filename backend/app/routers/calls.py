@@ -412,9 +412,11 @@ async def sync_call_from_retell(call_id: str):
         )
 
         # Extract structured data if we have transcript and agent config
+        structured_data_extracted = False
         if transcript:
             agent = await db.get_agent_config(call.agent_config_id)
             if agent:
+                print(f"Extracting structured data for scenario: {agent.scenario_type}")
                 try:
                     llm = LLMService()
                     structured_data = await llm.extract_structured_data(
@@ -423,6 +425,9 @@ async def sync_call_from_retell(call_id: str):
                         driver_name=call.driver_name,
                         load_number=call.load_number
                     )
+
+                    print(f"Structured data extracted: {structured_data}")
+
                     await db.update_call(call_id, CallUpdate(structured_data=structured_data))
 
                     await db.create_call_event(
@@ -430,15 +435,24 @@ async def sync_call_from_retell(call_id: str):
                         event_type="structured_data_extracted",
                         event_data={"scenario_type": agent.scenario_type}
                     )
+
+                    structured_data_extracted = True
+                    print("Structured data saved successfully")
                 except Exception as e:
                     print(f"Failed to extract structured data: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print("No agent config found for structured data extraction")
+        else:
+            print("No transcript available for structured data extraction")
 
         return {
             "status": "success",
             "message": "Call synced from Retell AI",
             "call_status": new_status,
             "transcript_entries": len(transcript),
-            "has_structured_data": call.structured_data is not None
+            "structured_data_extracted": structured_data_extracted
         }
 
     except HTTPException:
