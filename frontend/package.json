@@ -9,11 +9,14 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "retell-client-js-sdk": "^2.0.0",
+    "@headlessui/react": "^2.2.9",
     "axios": "^1.6.5",
+    "framer-motion": "^12.33.0",
+    "lucide-react": "^0.563.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.21.3"
+    "react-router-dom": "^6.21.3",
+    "retell-client-js-sdk": "^2.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.48",

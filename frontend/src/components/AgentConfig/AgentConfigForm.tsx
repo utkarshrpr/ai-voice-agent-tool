@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Save, X, AlertCircle, Sliders } from 'lucide-react';
 import api from '../../services/api';
 import type { AgentConfig, AgentConfigCreate, ConversationConfig } from '../../types';
 
@@ -82,21 +84,26 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <h3 className="text-lg font-semibold mb-4">
+    <div className="glass-card p-6">
+      <h3 className="text-lg font-semibold text-white mb-6">
         {agent ? 'Edit Agent' : 'Create New Agent'}
       </h3>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mb-6 glass-card border-accent-danger/50 p-3 flex items-center gap-2"
+        >
+          <AlertCircle className="w-4 h-4 text-accent-danger flex-shrink-0" />
+          <span className="text-accent-danger text-sm">{error}</span>
+        </motion.div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Agent Name *
           </label>
           <input
@@ -104,32 +111,32 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field"
             placeholder="e.g., Driver Check-in Agent"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Description
           </label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field"
             placeholder="Brief description of the agent's purpose"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Scenario Type *
           </label>
           <select
             value={scenarioType}
             onChange={(e) => setScenarioType(e.target.value as 'check_in' | 'emergency')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field"
           >
             <option value="check_in">Check-in (Routine)</option>
             <option value="emergency">Emergency Response</option>
@@ -138,7 +145,7 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
 
         {/* System Prompt */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             System Prompt *
           </label>
           <textarea
@@ -146,21 +153,24 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
             onChange={(e) => setSystemPrompt(e.target.value)}
             required
             rows={12}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+            className="input-field font-mono text-sm"
             placeholder="Enter the system prompt that defines the agent's behavior..."
           />
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-2 text-xs text-gray-500">
             This prompt guides the agent's conversation flow and behavior.
           </p>
         </div>
 
         {/* Conversation Settings */}
-        <div className="border-t pt-6">
-          <h4 className="text-md font-semibold mb-4">Conversation Settings</h4>
+        <div className="border-t border-dark-border pt-6">
+          <h4 className="text-md font-semibold text-white mb-4 flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-accent-primary" />
+            Conversation Settings
+          </h4>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">
+          <div className="space-y-5">
+            <div className="flex items-center justify-between glass-card p-3">
+              <label className="text-sm font-medium text-gray-300">
                 Enable Backchannel
               </label>
               <input
@@ -172,13 +182,13 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                     enable_backchannel: e.target.checked,
                   })
                 }
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent-primary focus:ring-accent-primary border-dark-border rounded"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Backchannel Frequency: {conversationConfig.backchannel_frequency.toFixed(1)}
+            <div className="glass-card p-4">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Backchannel Frequency: <span className="text-accent-primary">{conversationConfig.backchannel_frequency.toFixed(1)}</span>
               </label>
               <input
                 type="range"
@@ -192,13 +202,13 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                     backchannel_frequency: parseFloat(e.target.value),
                   })
                 }
-                className="w-full"
+                className="w-full accent-accent-primary"
                 disabled={!conversationConfig.enable_backchannel}
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">
+            <div className="flex items-center justify-between glass-card p-3">
+              <label className="text-sm font-medium text-gray-300">
                 Enable Filler Words
               </label>
               <input
@@ -210,13 +220,13 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                     enable_filler_words: e.target.checked,
                   })
                 }
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent-primary focus:ring-accent-primary border-dark-border rounded"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Interruption Sensitivity: {conversationConfig.interruption_sensitivity.toFixed(1)}
+            <div className="glass-card p-4">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Interruption Sensitivity: <span className="text-accent-primary">{conversationConfig.interruption_sensitivity.toFixed(1)}</span>
               </label>
               <input
                 type="range"
@@ -230,13 +240,13 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                     interruption_sensitivity: parseFloat(e.target.value),
                   })
                 }
-                className="w-full"
+                className="w-full accent-accent-primary"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Responsiveness: {conversationConfig.responsiveness.toFixed(1)}
+            <div className="glass-card p-4">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Responsiveness: <span className="text-accent-primary">{conversationConfig.responsiveness.toFixed(1)}</span>
               </label>
               <input
                 type="range"
@@ -250,12 +260,12 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                     responsiveness: parseFloat(e.target.value),
                   })
                 }
-                className="w-full"
+                className="w-full accent-accent-primary"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Voice ID
               </label>
               <input
@@ -267,41 +277,47 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                     voice_id: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input-field"
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">
+            <div className="flex items-center justify-between glass-card p-3">
+              <label className="text-sm font-medium text-gray-300">
                 Active
               </label>
               <input
                 type="checkbox"
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent-primary focus:ring-accent-primary border-dark-border rounded"
               />
             </div>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end space-x-3 pt-6 border-t">
-          <button
+        <div className="flex justify-end gap-3 pt-6 border-t border-dark-border">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="btn-secondary flex items-center gap-2"
           >
+            <X className="w-4 h-4" />
             Cancel
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300"
+            className="btn-primary flex items-center gap-2"
           >
+            <Save className="w-4 h-4" />
             {loading ? 'Saving...' : agent ? 'Update Agent' : 'Create Agent'}
-          </button>
+          </motion.button>
         </div>
       </form>
     </div>

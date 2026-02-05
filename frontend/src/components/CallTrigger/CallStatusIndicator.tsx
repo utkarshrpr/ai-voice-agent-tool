@@ -9,16 +9,16 @@ export default function CallStatusIndicator({ status, size = 'sm' }: Props) {
   const getStatusColor = () => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-accent-warning/20 text-accent-warning border-accent-warning/40';
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-accent-primary/20 text-accent-primary border-accent-primary/40';
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-accent-success/20 text-accent-success border-accent-success/40';
       case 'failed':
       case 'error':
-        return 'bg-red-100 text-red-800';
+        return 'bg-accent-danger/20 text-accent-danger border-accent-danger/40';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-600/20 text-gray-400 border-gray-600/40';
     }
   };
 
@@ -29,24 +29,24 @@ export default function CallStatusIndicator({ status, size = 'sm' }: Props) {
   const getSizeClasses = () => {
     switch (size) {
       case 'sm':
-        return 'px-2 py-1 text-xs';
+        return 'px-2.5 py-1 text-xs';
       case 'md':
         return 'px-3 py-1.5 text-sm';
       case 'lg':
         return 'px-4 py-2 text-base';
       default:
-        return 'px-2 py-1 text-xs';
+        return 'px-2.5 py-1 text-xs';
     }
   };
 
   return (
     <span
-      className={`inline-flex items-center font-medium rounded-full ${getStatusColor()} ${getSizeClasses()}`}
+      className={`status-badge border ${getStatusColor()} ${getSizeClasses()}`}
     >
       {status === 'in_progress' && (
-        <span className="mr-1.5 flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-blue-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+        <span className="flex h-2 w-2 relative">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-primary opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-primary"></span>
         </span>
       )}
       {getStatusText()}

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { RefreshCw, Trash2, Clock, Phone, AlertCircle } from 'lucide-react';
 import CallResultsView from '../components/CallResults/CallResultsView';
 import CallStatusIndicator from '../components/CallTrigger/CallStatusIndicator';
 import api from '../services/api';
@@ -9,6 +11,7 @@ export default function CallHistory() {
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadCalls();
@@ -43,21 +46,20 @@ export default function CallHistory() {
     }
   };
 
-  const handleRefresh = () => {
-    loadCalls();
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadCalls();
     if (selectedCall) {
-      // Refresh selected call
       api.getCall(selectedCall.id).then(setSelectedCall).catch(console.error);
     }
+    setRefreshing(false);
   };
 
   const handleCallUpdate = async () => {
-    // Refresh the selected call after transcript fetch
     if (selectedCall) {
       try {
         const updatedCall = await api.getCall(selectedCall.id);
         setSelectedCall(updatedCall);
-        // Also refresh the list
         loadCalls();
       } catch (err) {
         console.error('Failed to refresh call:', err);
@@ -68,106 +70,161 @@ export default function CallHistory() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading call history...</div>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 border-4 border-accent-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-gray-400">Loading call history...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex justify-between items-center"
+      >
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Call History</h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+            Call History
+          </h2>
+          <p className="mt-2 text-gray-400">
             View and analyze past call recordings and results
           </p>
         </div>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={handleRefresh}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={refreshing}
+          className="btn-secondary flex items-center gap-2"
         >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass-card border-accent-danger/50 p-4 flex items-center gap-3"
+          >
+            <AlertCircle className="w-5 h-5 text-accent-danger flex-shrink-0" />
+            <span className="text-accent-danger">{error}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Call List */}
-        <div className="lg:col-span-1">
-          <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Calls ({calls.length})</h3>
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="lg:col-span-1"
+        >
+          <div className="glass-card p-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Phone className="w-5 h-5 text-accent-primary" />
+              Calls ({calls.length})
+            </h3>
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
               {calls.length === 0 ? (
-                <p className="text-gray-500 text-sm">No calls yet.</p>
+                <div className="text-center py-12">
+                  <Phone className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400 text-sm">No calls yet</p>
+                </div>
               ) : (
-                calls.map((call) => (
-                  <div
+                calls.map((call, index) => (
+                  <motion.div
                     key={call.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.03 }}
+                    whileHover={{ x: 4 }}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all duration-300 ${
                       selectedCall?.id === call.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-accent-primary bg-accent-primary/10 shadow-glow-sm'
+                        : 'border-dark-border hover:border-accent-primary/50 glass-card-hover'
                     }`}
                     onClick={() => setSelectedCall(call)}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{call.driver_name}</h4>
-                        <p className="text-sm text-gray-500">Load: {call.load_number}</p>
+                        <h4 className="font-medium text-white">{call.driver_name}</h4>
+                        <p className="text-sm text-gray-400">Load: {call.load_number}</p>
                       </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDelete(call.id);
                         }}
-                        className="ml-2 text-red-600 hover:text-red-800"
+                        className="ml-2 p-1 text-accent-danger hover:bg-accent-danger/20 rounded transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path
-                            fillRule="evenodd"
-                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                     <div className="flex items-center justify-between">
                       <CallStatusIndicator status={call.status} />
-                      <p className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
                         {new Date(call.created_at).toLocaleDateString()}
-                      </p>
+                      </span>
                     </div>
                     {call.call_duration && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {Math.floor(call.call_duration / 60)}m {call.call_duration % 60}s
+                      <p className="text-xs text-gray-500 mt-2">
+                        Duration: {Math.floor(call.call_duration / 60)}m {call.call_duration % 60}s
                       </p>
                     )}
-                  </div>
+                  </motion.div>
                 ))
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Call Details */}
-        <div className="lg:col-span-2">
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="lg:col-span-2"
+        >
           {selectedCall ? (
             <CallResultsView call={selectedCall} onUpdate={handleCallUpdate} />
           ) : (
-            <div className="bg-white shadow rounded-lg p-6 flex items-center justify-center h-96">
-              <div className="text-center text-gray-500">
-                <p className="mb-2">Select a call to view details</p>
-                <p className="text-sm">Structured data and transcripts will appear here</p>
+            <div className="glass-card p-8 flex items-center justify-center min-h-[600px]">
+              <div className="text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-accent-primary/20 to-accent-secondary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Phone className="w-10 h-10 text-accent-primary" />
+                </div>
+                <p className="text-lg font-medium text-white mb-2">Select a call to view details</p>
+                <p className="text-sm text-gray-400">Structured data and transcripts will appear here</p>
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
       </div>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.5);
+        }
+      `}</style>
     </div>
   );
 }

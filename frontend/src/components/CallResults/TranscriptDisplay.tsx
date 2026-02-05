@@ -1,3 +1,4 @@
+import { MessageSquare, AlertTriangle } from 'lucide-react';
 import type { TranscriptEntry } from '../../types';
 
 interface Props {
@@ -15,11 +16,6 @@ export default function TranscriptDisplay({ transcript }: Props) {
     'medical',
   ];
 
-  const highlightEmergencyKeywords = (text: string): string[] => {
-    const words = text.split(' ');
-    return words;
-  };
-
   const containsEmergencyKeyword = (text: string): boolean => {
     const lowerText = text.toLowerCase();
     return emergencyKeywords.some((keyword) => lowerText.includes(keyword));
@@ -27,20 +23,14 @@ export default function TranscriptDisplay({ transcript }: Props) {
 
   return (
     <div>
-      <h4 className="text-lg font-semibold mb-4 flex items-center">
-        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
-            clipRule="evenodd"
-          />
-        </svg>
+      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <MessageSquare className="w-5 h-5 text-accent-primary" />
         Call Transcript
       </h4>
 
-      <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+      <div className="glass-card p-4 max-h-96 overflow-y-auto custom-scrollbar">
         {transcript.length === 0 ? (
-          <p className="text-gray-500 text-sm">No transcript available</p>
+          <p className="text-gray-400 text-sm text-center py-8">No transcript available</p>
         ) : (
           <div className="space-y-3">
             {transcript.map((entry, index) => {
@@ -55,28 +45,29 @@ export default function TranscriptDisplay({ transcript }: Props) {
                   <div
                     className={`max-w-[80%] rounded-lg px-4 py-3 ${
                       isAgent
-                        ? 'bg-blue-100 text-blue-900'
+                        ? 'bg-accent-primary/20 border border-accent-primary/40 text-white'
                         : hasEmergency
-                        ? 'bg-red-100 text-red-900 border-2 border-red-400'
-                        : 'bg-white text-gray-900 border border-gray-200'
+                        ? 'bg-accent-danger/20 border-2 border-accent-danger/60 text-white'
+                        : 'glass-card text-white'
                     }`}
                   >
-                    <div className="flex items-center mb-1">
+                    <div className="flex items-center mb-1 gap-2">
                       <p className="text-xs font-semibold">
                         {isAgent ? 'Agent' : 'Driver'}
                       </p>
                       {entry.timestamp && (
-                        <p className="text-xs ml-2 opacity-70">
+                        <p className="text-xs opacity-60">
                           {entry.timestamp.toFixed(1)}s
                         </p>
                       )}
                       {hasEmergency && (
-                        <span className="ml-2 text-xs font-bold text-red-700">
-                          ⚠️ EMERGENCY
+                        <span className="flex items-center gap-1 text-xs font-bold text-accent-danger">
+                          <AlertTriangle className="w-3 h-3" />
+                          EMERGENCY
                         </span>
                       )}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.content}</p>
                   </div>
                 </div>
               );
@@ -86,14 +77,30 @@ export default function TranscriptDisplay({ transcript }: Props) {
       </div>
 
       {transcript.length > 0 && (
-        <div className="mt-3 text-xs text-gray-500">
-          <p>Total turns: {transcript.length}</p>
-          <p>
-            Agent turns: {transcript.filter((e) => e.role === 'agent').length} | Driver
-            turns: {transcript.filter((e) => e.role === 'user').length}
-          </p>
+        <div className="mt-3 glass-card p-3 text-xs text-gray-400 flex items-center justify-between">
+          <span>Total turns: {transcript.length}</span>
+          <span>
+            Agent: {transcript.filter((e) => e.role === 'agent').length} | Driver:{' '}
+            {transcript.filter((e) => e.role === 'user').length}
+          </span>
         </div>
       )}
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.5);
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Database } from 'lucide-react';
 import type { StructuredData, CheckInData, EmergencyData } from '../../types';
 
 interface Props {
@@ -78,24 +79,18 @@ export default function StructuredDataDisplay({ data }: Props) {
 
   return (
     <div>
-      <h4 className="text-lg font-semibold mb-4 flex items-center">
-        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z"
-            clipRule="evenodd"
-          />
-        </svg>
+      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <Database className="w-5 h-5 text-accent-primary" />
         Structured Data
       </h4>
 
-      <div className="bg-gray-50 rounded-lg p-4">
+      <div className="glass-card p-4">
         {isCheckInData(data) ? (
           renderCheckInData(data)
         ) : isEmergencyData(data) ? (
           renderEmergencyData(data)
         ) : (
-          <p className="text-gray-500">Unknown data format</p>
+          <p className="text-gray-400">Unknown data format</p>
         )}
       </div>
     </div>
@@ -113,24 +108,24 @@ function DataField({ label, value, highlight, isEmergency }: DataFieldProps) {
   const displayValue =
     value === null || value === undefined || value === '' ? 'N/A' : String(value);
 
-  const baseClasses = 'p-3 rounded';
+  const baseClasses = 'p-3 rounded-lg';
   const bgClasses = highlight
     ? isEmergency
-      ? 'bg-red-100 border border-red-300'
-      : 'bg-blue-100 border border-blue-300'
-    : 'bg-white border border-gray-200';
+      ? 'bg-accent-danger/20 border border-accent-danger/50'
+      : 'bg-accent-primary/20 border border-accent-primary/50'
+    : 'glass-card border-dark-border';
 
   const labelClasses = highlight
     ? isEmergency
-      ? 'text-red-900'
-      : 'text-blue-900'
-    : 'text-gray-600';
+      ? 'text-accent-danger'
+      : 'text-accent-primary'
+    : 'text-gray-400';
 
   const valueClasses = highlight
     ? isEmergency
-      ? 'text-red-900'
-      : 'text-blue-900'
-    : 'text-gray-900';
+      ? 'text-accent-danger'
+      : 'text-accent-primary'
+    : 'text-white';
 
   return (
     <div className={`${baseClasses} ${bgClasses}`}>
