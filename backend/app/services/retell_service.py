@@ -1,91 +1,152 @@
 import httpx
-from app.config import get_settings
 from typing import Dict, Any, Optional
+from app.config import settings
+from app.models.agent_config import AgentConfig
 
 
 class RetellService:
+    """Service for interacting with Retell AI API."""
+
+    BASE_URL = "https://api.retellai.com"
+    BASE_URL_V2 = "https://api.retellai.com/v2"
+
     def __init__(self):
-        self.settings = get_settings()
-        self.api_key = self.settings.retell_api_key
-        self.base_url = "https://api.retellai.com/v2"
+        self.api_key = settings.retell_api_key
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
 
-    async def create_phone_call(
-        self,
-        agent_config: Dict[str, Any],
-        phone_number: str,
-        call_metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Initiate a phone call through Retell AI."""
-
-        payload = {
-            "from_number": "+1234567890",  # Configure your Retell phone number
-            "to_number": phone_number,
-            "override_agent_id": None,  # Use custom configuration
-            "retell_llm_dynamic_variables": call_metadata,
-            "metadata": call_metadata,
-            "voice_id": agent_config.get("conversation_config", {}).get("voice_id", "default"),
-            "webhook_url": f"{self.settings.backend_url}/api/webhooks/retell"
-        }
-
+    async def create_agent(self, agent_config: AgentConfig) -> str:
+        """
+        Create an agent in Retell AI.
+        First creates a Retell LLM with the system prompt, then creates the agent.
+        Returns the Retell agent ID.
+        """
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/create-phone-call",
+            # Step 1: Create Retell LLM with the system prompt
+            llm_payload = {
+                "general_prompt": agent_config.system_prompt,
+                "general_tools": [],
+                "starting_sentence": "Hi, this is dispatch calling.",
+                "model": "gpt-4o-mini",
+                "enable_backchannel": agent_config.conversation_config.enable_backchannel,
+                "backchannel_frequency": agent_config.conversation_config.backchannel_frequency,
+                "backchannel_words": ["uh-huh", "yeah", "right", "okay"] if agent_config.conversation_config.enable_filler_words else [],
+                "responsiveness": agent_config.conversation_config.responsiveness,
+            }
+
+            llm_response = await client.post(
+                f"{self.BASE_URL}/create-retell-llm",
+                json=llm_payload,
                 headers=self.headers,
+                timeout=30.0
+            )
+            llm_response.raise_for_status()
+            llm_data = llm_response.json()
+            llm_id = llm_data["llm_id"]
+
+            # Step 2: Create agent with the LLM
+            agent_payload = {
+                "agent_name": agent_config.name,
+                "voice_id": agent_config.conversation_config.voice_id,
+                "language": "en-US",
+                "response_engine": {
+                    "type": "retell-llm",
+                    "llm_id": llm_id
+                },
+                "interruption_sensitivity": agent_config.conversation_config.interruption_sensitivity,
+            }
+
+            agent_response = await client.post(
+                f"{self.BASE_URL}/create-agent",
+                json=agent_payload,
+                headers=self.headers,
+                timeout=30.0
+            )
+            agent_response.raise_for_status()
+
+            data = agent_response.json()
+            return data["agent_id"]
+
+    async def update_agent(self, retell_agent_id: str, agent_config: AgentConfig) -> None:
+        """
+        Update an agent in Retell AI.
+        Note: This updates only the agent properties.
+        To update the prompt, you need to update the LLM separately.
+        """
+        async with httpx.AsyncClient() as client:
+            # Update agent properties
+            payload = {
+                "agent_name": agent_config.name,
+                "voice_id": agent_config.conversation_config.voice_id,
+                "interruption_sensitivity": agent_config.conversation_config.interruption_sensitivity,
+            }
+
+            response = await client.patch(
+                f"{self.BASE_URL}/update-agent/{retell_agent_id}",
                 json=payload,
+                headers=self.headers,
                 timeout=30.0
             )
             response.raise_for_status()
-            return response.json()
 
-    async def get_call_details(self, call_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve call details from Retell AI."""
+            # Note: Updating the LLM (system prompt) would require:
+            # 1. Getting the current agent's LLM ID
+            # 2. Updating that LLM
+            # This is more complex and may not be needed for MVP
+
+    async def create_web_call(
+        self,
+        agent_id: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a web call and return access token.
+        This is the critical method for browser-based calling.
+        Uses Retell AI v2 API endpoint.
+        """
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "agent_id": agent_id,
+                "metadata": metadata or {},
+                "retell_llm_dynamic_variables": metadata or {}
+            }
+
+            response = await client.post(
+                f"{self.BASE_URL_V2}/create-web-call",
+                json=payload,
+                headers=self.headers,
+                timeout=30.0
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            return {
+                "call_id": data.get("call_id"),
+                "access_token": data.get("access_token"),
+                "sample_rate": 24000  # Standard sample rate for web calls
+            }
+
+    async def get_call_details(self, call_id: str) -> Dict[str, Any]:
+        """Get call details from Retell AI."""
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{self.base_url}/get-call/{call_id}",
+                f"{self.BASE_URL}/get-call/{call_id}",
                 headers=self.headers,
-                timeout=30.0
-            )
-            if response.status_code == 200:
-                return response.json()
-            return None
-
-    async def register_llm_websocket(
-        self,
-        agent_config: Dict[str, Any],
-        call_metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Register custom LLM websocket for real-time conversation control."""
-
-        payload = {
-            "agent_name": agent_config.get("name", "AI Agent"),
-            "llm_websocket_url": f"{self.settings.backend_url.replace('http', 'ws')}/ws/llm",
-            "begin_message": "Hello! This is an automated check-in call.",
-            "general_prompt": agent_config.get("system_prompt", ""),
-            "general_tools": [],
-            "states": [],
-            "inbound_dynamic_variables_webhook_url": None,
-            "voice_id": agent_config.get("conversation_config", {}).get("voice_id", "default"),
-            "enable_backchannel": agent_config.get("conversation_config", {}).get("enable_backchannel", True),
-            "backchannel_frequency": agent_config.get("conversation_config", {}).get("backchannel_frequency", 0.8),
-            "enable_filler_words": agent_config.get("conversation_config", {}).get("enable_filler_words", True),
-            "interruption_sensitivity": agent_config.get("conversation_config", {}).get("interruption_sensitivity", 0.5),
-            "responsiveness": agent_config.get("conversation_config", {}).get("responsiveness", 0.7),
-            "ambient_sound": agent_config.get("conversation_config", {}).get("ambient_sound", "office")
-        }
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/create-retell-llm",
-                headers=self.headers,
-                json=payload,
                 timeout=30.0
             )
             response.raise_for_status()
             return response.json()
 
-
-retell_service = RetellService()
+    async def list_calls(self, limit: int = 100) -> Dict[str, Any]:
+        """List calls from Retell AI."""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.BASE_URL}/list-calls",
+                params={"limit": limit},
+                headers=self.headers,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()

@@ -1,6 +1,7 @@
-import type { Call } from '../../types';
+import CallStatusIndicator from '../CallTrigger/CallStatusIndicator';
 import StructuredDataDisplay from './StructuredDataDisplay';
 import TranscriptDisplay from './TranscriptDisplay';
+import type { Call } from '../../types';
 
 interface Props {
   call: Call;
@@ -8,61 +9,78 @@ interface Props {
 
 export default function CallResultsView({ call }: Props) {
   return (
-    <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Call Details</h3>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="bg-white shadow rounded-lg p-6 space-y-6">
+      {/* Call Metadata */}
+      <div className="border-b pb-4">
+        <div className="flex justify-between items-start mb-4">
           <div>
-            <dt className="text-sm font-medium text-gray-500">Driver Name</dt>
-            <dd className="mt-1 text-sm text-gray-900">{call.driver_name}</dd>
+            <h3 className="text-xl font-bold text-gray-900">{call.driver_name}</h3>
+            <p className="text-sm text-gray-500">Load Number: {call.load_number}</p>
+            {call.phone_number && (
+              <p className="text-sm text-gray-500">Phone: {call.phone_number}</p>
+            )}
           </div>
+          <CallStatusIndicator status={call.status} size="md" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <dt className="text-sm font-medium text-gray-500">Load Number</dt>
-            <dd className="mt-1 text-sm text-gray-900">{call.load_number}</dd>
+            <p className="text-gray-500">Created</p>
+            <p className="font-medium text-gray-900">
+              {new Date(call.created_at).toLocaleString()}
+            </p>
           </div>
-          <div>
-            <dt className="text-sm font-medium text-gray-500">Phone Number</dt>
-            <dd className="mt-1 text-sm text-gray-900">{call.driver_phone}</dd>
-          </div>
-          <div>
-            <dt className="text-sm font-medium text-gray-500">Status</dt>
-            <dd className="mt-1">
-              <span
-                className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                  call.call_status === 'completed'
-                    ? 'bg-green-100 text-green-800'
-                    : call.call_status === 'failed'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}
-              >
-                {call.call_status}
-              </span>
-            </dd>
-          </div>
-          {call.duration_seconds && (
+          {call.started_at && (
             <div>
-              <dt className="text-sm font-medium text-gray-500">Duration</dt>
-              <dd className="mt-1 text-sm text-gray-900">
-                {call.duration_seconds} seconds
-              </dd>
+              <p className="text-gray-500">Started</p>
+              <p className="font-medium text-gray-900">
+                {new Date(call.started_at).toLocaleString()}
+              </p>
             </div>
           )}
-          <div>
-            <dt className="text-sm font-medium text-gray-500">Created At</dt>
-            <dd className="mt-1 text-sm text-gray-900">
-              {new Date(call.created_at).toLocaleString()}
-            </dd>
-          </div>
-        </dl>
+          {call.ended_at && (
+            <div>
+              <p className="text-gray-500">Ended</p>
+              <p className="font-medium text-gray-900">
+                {new Date(call.ended_at).toLocaleString()}
+              </p>
+            </div>
+          )}
+          {call.call_duration && (
+            <div>
+              <p className="text-gray-500">Duration</p>
+              <p className="font-medium text-gray-900">
+                {Math.floor(call.call_duration / 60)}m {call.call_duration % 60}s
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {call.structured_data && (
+      {/* Structured Data */}
+      {call.structured_data ? (
         <StructuredDataDisplay data={call.structured_data} />
+      ) : call.status === 'completed' ? (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
+          Structured data is being processed. Please refresh in a moment.
+        </div>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 text-gray-600 px-4 py-3 rounded">
+          No structured data available yet.
+        </div>
       )}
 
-      {call.raw_transcript && call.raw_transcript.length > 0 && (
-        <TranscriptDisplay transcript={call.raw_transcript} />
+      {/* Transcript */}
+      {call.transcript && call.transcript.length > 0 ? (
+        <TranscriptDisplay transcript={call.transcript} />
+      ) : call.status === 'completed' ? (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
+          Transcript is being processed.
+        </div>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 text-gray-600 px-4 py-3 rounded">
+          No transcript available yet.
+        </div>
       )}
     </div>
   );

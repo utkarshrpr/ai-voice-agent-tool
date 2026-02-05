@@ -1,125 +1,197 @@
-from typing import Dict, Any, List
-from app.services.llm_service import llm_service
+from typing import List, Dict, Any, Optional
+from app.models.call import TranscriptEntry
 
 
 class ConversationManager:
-    def __init__(self):
-        self.active_conversations: Dict[str, Dict[str, Any]] = {}
+    """
+    Utility class for managing conversation flow and context.
+    Useful for analyzing conversation patterns and detecting special cases.
+    """
 
-    def initialize_conversation(
-        self,
-        call_id: str,
-        agent_config: Dict[str, Any],
-        call_context: Dict[str, Any]
-    ):
-        """Initialize a new conversation session."""
-        self.active_conversations[call_id] = {
-            "agent_config": agent_config,
-            "call_context": call_context,
-            "history": [],
-            "state": {
-                "emergency_detected": False,
-                "data_collected": {},
-                "current_topic": "greeting"
+    # Emergency keywords that should trigger immediate protocol change
+    EMERGENCY_KEYWORDS = [
+        "accident", "crash", "collision", "hit",
+        "breakdown", "broken down", "broke down",
+        "emergency", "urgent",
+        "hurt", "injured", "injury", "pain",
+        "medical", "hospital", "ambulance",
+        "fire", "smoke", "burning",
+        "help", "danger", "stuck"
+    ]
+
+    # Keywords indicating uncooperative driver
+    UNCOOPERATIVE_INDICATORS = [
+        "don't know", "dunno", "whatever",
+        "leave me alone", "stop calling",
+        "busy", "not now"
+    ]
+
+    # Keywords indicating noisy environment
+    NOISE_INDICATORS = [
+        "can't hear", "what", "say again",
+        "repeat that", "speak up", "louder",
+        "breaking up", "bad signal"
+    ]
+
+    @staticmethod
+    def detect_emergency(transcript: List[TranscriptEntry]) -> Optional[Dict[str, Any]]:
+        """
+        Detect if an emergency is mentioned in the conversation.
+        Returns details about the emergency if detected.
+        """
+        for entry in transcript:
+            if entry.role == "user":  # Driver's messages
+                content_lower = entry.content.lower()
+
+                for keyword in ConversationManager.EMERGENCY_KEYWORDS:
+                    if keyword in content_lower:
+                        return {
+                            "detected": True,
+                            "keyword": keyword,
+                            "message": entry.content,
+                            "timestamp": entry.timestamp
+                        }
+
+        return None
+
+    @staticmethod
+    def detect_uncooperative_pattern(transcript: List[TranscriptEntry]) -> bool:
+        """
+        Detect if the driver is being uncooperative.
+        Looks for short responses, dismissive language, or explicit refusal.
+        """
+        driver_responses = [
+            entry for entry in transcript
+            if entry.role == "user"
+        ]
+
+        if len(driver_responses) < 3:
+            return False
+
+        # Check for very short responses (< 5 words)
+        short_responses = sum(
+            1 for entry in driver_responses
+            if len(entry.content.split()) < 5
+        )
+
+        # Check for uncooperative keywords
+        uncooperative_count = sum(
+            1 for entry in driver_responses
+            for indicator in ConversationManager.UNCOOPERATIVE_INDICATORS
+            if indicator in entry.content.lower()
+        )
+
+        # If more than 50% of responses are short or multiple uncooperative indicators
+        return (short_responses / len(driver_responses) > 0.5) or (uncooperative_count >= 2)
+
+    @staticmethod
+    def detect_noisy_environment(transcript: List[TranscriptEntry]) -> bool:
+        """
+        Detect if the conversation is affected by a noisy environment.
+        Looks for communication difficulty indicators.
+        """
+        noise_mentions = 0
+
+        for entry in transcript:
+            content_lower = entry.content.lower()
+            for indicator in ConversationManager.NOISE_INDICATORS:
+                if indicator in content_lower:
+                    noise_mentions += 1
+
+        # If noise indicators appear 2 or more times
+        return noise_mentions >= 2
+
+    @staticmethod
+    def analyze_response_quality(transcript: List[TranscriptEntry]) -> Dict[str, Any]:
+        """
+        Analyze the quality of driver responses.
+        Returns metrics about response completeness and engagement.
+        """
+        driver_responses = [
+            entry for entry in transcript
+            if entry.role == "user"
+        ]
+
+        if not driver_responses:
+            return {
+                "avg_response_length": 0,
+                "one_word_responses": 0,
+                "engaged": False
             }
+
+        word_counts = [len(entry.content.split()) for entry in driver_responses]
+        one_word = sum(1 for count in word_counts if count == 1)
+        avg_length = sum(word_counts) / len(word_counts)
+
+        return {
+            "total_responses": len(driver_responses),
+            "avg_response_length": avg_length,
+            "one_word_responses": one_word,
+            "engaged": avg_length > 5 and one_word / len(driver_responses) < 0.3
         }
 
-    async def process_user_message(
-        self,
-        call_id: str,
-        user_message: str
+    @staticmethod
+    def get_conversation_context(
+        driver_name: str,
+        load_number: str,
+        phone_number: Optional[str] = None
     ) -> str:
-        """Process user message and generate agent response."""
+        """
+        Generate context string for the agent to use in conversation.
+        """
+        context = f"Driver: {driver_name}, Load: {load_number}"
+        if phone_number:
+            context += f", Phone: {phone_number}"
+        return context
 
-        if call_id not in self.active_conversations:
-            return "I'm sorry, there was an error with this call."
+    @staticmethod
+    def should_end_call(transcript: List[TranscriptEntry], max_attempts: int = 3) -> bool:
+        """
+        Determine if the call should be ended due to unresponsiveness.
+        """
+        if len(transcript) < max_attempts * 2:  # Need at least attempts * 2 turns
+            return False
 
-        conversation = self.active_conversations[call_id]
+        # Check last few driver responses
+        recent_driver_responses = [
+            entry for entry in transcript[-max_attempts * 2:]
+            if entry.role == "user"
+        ]
 
-        # Add user message to history
-        conversation["history"].append({
-            "role": "user",
-            "content": user_message
-        })
+        if len(recent_driver_responses) < max_attempts:
+            return False
 
-        # Check for emergency
-        if not conversation["state"]["emergency_detected"]:
-            emergency_result = await llm_service.detect_emergency(user_message)
-            if emergency_result.get("is_emergency") and emergency_result.get("confidence", 0) > 0.7:
-                conversation["state"]["emergency_detected"] = True
-                conversation["state"]["current_topic"] = "emergency"
-                response = await self._handle_emergency_pivot(conversation)
-            else:
-                response = await self._handle_normal_flow(conversation)
-        else:
-            response = await self._handle_emergency_flow(conversation)
-
-        # Add agent response to history
-        conversation["history"].append({
-            "role": "assistant",
-            "content": response
-        })
-
-        return response
-
-    async def _handle_emergency_pivot(self, conversation: Dict[str, Any]) -> str:
-        """Handle immediate pivot to emergency protocol."""
-        return (
-            "I understand this is an emergency situation. First, are you safe right now? "
-            "Do you or anyone else need immediate medical attention?"
+        # If all recent responses are very short or dismissive
+        short_count = sum(
+            1 for entry in recent_driver_responses
+            if len(entry.content.split()) < 3
         )
 
-    async def _handle_emergency_flow(self, conversation: Dict[str, Any]) -> str:
-        """Handle conversation flow for emergency scenario."""
-        agent_config = conversation["agent_config"]
-        call_context = conversation["call_context"]
+        return short_count >= max_attempts
 
-        emergency_prompt = f"""
-{agent_config.get('system_prompt', '')}
+    @staticmethod
+    def extract_location_mentions(transcript: List[TranscriptEntry]) -> List[str]:
+        """
+        Extract potential location mentions from the transcript.
+        Uses simple heuristics (Interstate, Highway, Mile Marker, city names).
+        """
+        locations = []
 
-EMERGENCY MODE ACTIVE. Priority:
-1. Confirm safety status
-2. Determine emergency type
-3. Collect location
-4. Verify load security
-5. Assure help is coming
+        for entry in transcript:
+            if entry.role == "user":
+                content = entry.content
 
-Continue the emergency protocol naturally.
-"""
+                # Look for interstate mentions (I-10, I-15, etc.)
+                import re
+                interstate_matches = re.findall(r'I-\d+', content, re.IGNORECASE)
+                locations.extend(interstate_matches)
 
-        response = await llm_service.get_next_response(
-            emergency_prompt,
-            conversation["history"],
-            call_context
-        )
+                # Look for highway mentions
+                highway_matches = re.findall(r'Highway \d+', content, re.IGNORECASE)
+                locations.extend(highway_matches)
 
-        return response
+                # Look for mile marker mentions
+                mile_matches = re.findall(r'Mile Marker \d+', content, re.IGNORECASE)
+                locations.extend(mile_matches)
 
-    async def _handle_normal_flow(self, conversation: Dict[str, Any]) -> str:
-        """Handle normal conversation flow for check-in scenario."""
-        agent_config = conversation["agent_config"]
-        call_context = conversation["call_context"]
-
-        response = await llm_service.get_next_response(
-            agent_config.get("system_prompt", ""),
-            conversation["history"],
-            call_context
-        )
-
-        return response
-
-    def get_conversation_history(self, call_id: str) -> List[Dict[str, str]]:
-        """Get full conversation history for a call."""
-        if call_id in self.active_conversations:
-            return self.active_conversations[call_id]["history"]
-        return []
-
-    def end_conversation(self, call_id: str) -> List[Dict[str, str]]:
-        """End conversation and return final history."""
-        history = self.get_conversation_history(call_id)
-        if call_id in self.active_conversations:
-            del self.active_conversations[call_id]
-        return history
-
-
-conversation_manager = ConversationManager()
+        return locations

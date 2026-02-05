@@ -1,95 +1,55 @@
-import { useEffect, useState } from 'react';
-import { callApi } from '../../services/api';
-import type { Call } from '../../types';
+import type { CallStatus } from '../../types';
 
 interface Props {
-  call: Call;
-  onComplete: () => void;
+  status: CallStatus;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export default function CallStatusIndicator({ call, onComplete }: Props) {
-  const [currentCall, setCurrentCall] = useState<Call>(call);
-  const [polling, setPolling] = useState(true);
-
-  useEffect(() => {
-    if (!polling) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const updatedCall = await callApi.get(call.id);
-        setCurrentCall(updatedCall);
-
-        if (updatedCall.call_status === 'completed' || updatedCall.call_status === 'failed') {
-          setPolling(false);
-          setTimeout(() => {
-            onComplete();
-          }, 2000);
-        }
-      } catch (error) {
-        console.error('Failed to poll call status:', error);
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [call.id, polling, onComplete]);
-
-  const getStatusColor = (status: string) => {
+export default function CallStatusIndicator({ status, size = 'sm' }: Props) {
+  const getStatusColor = () => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-500';
-      case 'failed':
-        return 'bg-red-500';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
       case 'in_progress':
-        return 'bg-yellow-500';
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'failed':
+      case 'error':
+        return 'bg-red-100 text-red-800';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Call Completed';
-      case 'failed':
-        return 'Call Failed';
-      case 'in_progress':
-        return 'Call In Progress';
+  const getStatusText = () => {
+    return status.replace('_', ' ').toUpperCase();
+  };
+
+  const getSizeClasses = () => {
+    switch (size) {
+      case 'sm':
+        return 'px-2 py-1 text-xs';
+      case 'md':
+        return 'px-3 py-1.5 text-sm';
+      case 'lg':
+        return 'px-4 py-2 text-base';
       default:
-        return 'Call Initiated';
+        return 'px-2 py-1 text-xs';
     }
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <div className="flex items-center space-x-4">
-        <div className={`w-3 h-3 rounded-full ${getStatusColor(currentCall.call_status)} ${
-          currentCall.call_status === 'in_progress' ? 'animate-pulse' : ''
-        }`} />
-        <div className="flex-1">
-          <h3 className="text-lg font-medium text-gray-900">
-            {getStatusText(currentCall.call_status)}
-          </h3>
-          <p className="text-sm text-gray-500">
-            Driver: {currentCall.driver_name} | Load: {currentCall.load_number}
-          </p>
-        </div>
-        {currentCall.duration_seconds && (
-          <div className="text-sm text-gray-500">
-            Duration: {currentCall.duration_seconds}s
-          </div>
-        )}
-      </div>
-
-      {currentCall.call_status === 'completed' && currentCall.structured_data && (
-        <div className="mt-4 border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Call Summary</h4>
-          <div className="bg-gray-50 rounded p-3">
-            <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-              {JSON.stringify(currentCall.structured_data, null, 2)}
-            </pre>
-          </div>
-        </div>
+    <span
+      className={`inline-flex items-center font-medium rounded-full ${getStatusColor()} ${getSizeClasses()}`}
+    >
+      {status === 'in_progress' && (
+        <span className="mr-1.5 flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-blue-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+        </span>
       )}
-    </div>
+      {getStatusText()}
+    </span>
   );
 }

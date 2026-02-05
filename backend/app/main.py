@@ -1,45 +1,57 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.config import get_settings
+from app.config import settings
 from app.routers import agent_config, calls, webhooks
 
-settings = get_settings()
-
+# Initialize FastAPI app
 app = FastAPI(
     title="AI Voice Agent Tool API",
-    description="Backend API for configuring and managing AI voice agents for logistics",
-    version="1.0.0"
+    description="Backend API for managing AI voice agents and web calls",
+    version="1.0.0",
+    debug=settings.debug
 )
 
-# CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(agent_config.router)
-app.include_router(calls.router)
-app.include_router(webhooks.router)
+app.include_router(agent_config.router, prefix="/api/agents", tags=["Agent Configuration"])
+app.include_router(calls.router, prefix="/api/calls", tags=["Calls"])
+app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
 
 
 @app.get("/")
 async def root():
+    """Root endpoint."""
     return {
         "message": "AI Voice Agent Tool API",
         "version": "1.0.0",
-        "status": "running"
+        "status": "operational"
     }
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Health check endpoint."""
+    llm_configured = settings.validate_llm_config()
+
+    return {
+        "status": "healthy",
+        "environment": settings.environment,
+        "services": {
+            "supabase": bool(settings.supabase_url and settings.supabase_key),
+            "retell": bool(settings.retell_api_key),
+            "llm": llm_configured
+        }
+    }
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=settings.debug)

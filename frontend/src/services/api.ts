@@ -1,58 +1,86 @@
-import axios from 'axios';
-import type { AgentConfig, AgentConfigCreate, Call, CallCreate } from '../types';
+import axios, { AxiosInstance } from 'axios';
+import type {
+  AgentConfig,
+  AgentConfigCreate,
+  AgentConfigUpdate,
+  Call,
+  CallCreate,
+  WebCallResponse,
+} from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+class ApiService {
+  private client: AxiosInstance;
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+  constructor() {
+    this.client = axios.create({
+      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
 
-// Agent Config API
-export const agentConfigApi = {
-  list: async (): Promise<AgentConfig[]> => {
-    const response = await api.get('/api/agent-configs');
+  // Agent Configuration Endpoints
+  async createAgentConfig(data: AgentConfigCreate): Promise<AgentConfig> {
+    const response = await this.client.post<AgentConfig>('/agents/', data);
     return response.data;
-  },
+  }
 
-  get: async (id: string): Promise<AgentConfig> => {
-    const response = await api.get(`/api/agent-configs/${id}`);
+  async listAgentConfigs(activeOnly: boolean = false): Promise<AgentConfig[]> {
+    const response = await this.client.get<AgentConfig[]>('/agents/', {
+      params: { active_only: activeOnly },
+    });
     return response.data;
-  },
+  }
 
-  create: async (config: AgentConfigCreate): Promise<AgentConfig> => {
-    const response = await api.post('/api/agent-configs', config);
+  async getAgentConfig(agentId: string): Promise<AgentConfig> {
+    const response = await this.client.get<AgentConfig>(`/agents/${agentId}`);
     return response.data;
-  },
+  }
 
-  update: async (id: string, config: Partial<AgentConfigCreate>): Promise<AgentConfig> => {
-    const response = await api.put(`/api/agent-configs/${id}`, config);
+  async updateAgentConfig(
+    agentId: string,
+    data: AgentConfigUpdate
+  ): Promise<AgentConfig> {
+    const response = await this.client.put<AgentConfig>(`/agents/${agentId}`, data);
     return response.data;
-  },
+  }
 
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/api/agent-configs/${id}`);
-  },
-};
+  async deleteAgentConfig(agentId: string): Promise<void> {
+    await this.client.delete(`/agents/${agentId}`);
+  }
 
-// Call API
-export const callApi = {
-  list: async (limit = 50, offset = 0): Promise<Call[]> => {
-    const response = await api.get('/api/calls', { params: { limit, offset } });
+  // Call Endpoints
+  async createWebCall(data: CallCreate): Promise<WebCallResponse> {
+    const response = await this.client.post<WebCallResponse>('/calls/web-call', data);
     return response.data;
-  },
+  }
 
-  get: async (id: string): Promise<Call> => {
-    const response = await api.get(`/api/calls/${id}`);
+  async listCalls(agentConfigId?: string, limit: number = 50): Promise<Call[]> {
+    const response = await this.client.get<Call[]>('/calls/', {
+      params: {
+        agent_config_id: agentConfigId,
+        limit,
+      },
+    });
     return response.data;
-  },
+  }
 
-  create: async (callData: CallCreate): Promise<Call> => {
-    const response = await api.post('/api/calls', callData);
+  async getCall(callId: string): Promise<Call> {
+    const response = await this.client.get<Call>(`/calls/${callId}`);
     return response.data;
-  },
-};
+  }
 
+  async deleteCall(callId: string): Promise<void> {
+    await this.client.delete(`/calls/${callId}`);
+  }
+
+  // Health Check
+  async healthCheck(): Promise<{ status: string; services: Record<string, boolean> }> {
+    const response = await this.client.get('/health');
+    return response.data;
+  }
+}
+
+export const api = new ApiService();
 export default api;

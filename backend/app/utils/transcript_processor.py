@@ -1,80 +1,98 @@
-from typing import Dict, Any, List
-from app.services.llm_service import llm_service
+from typing import List, Dict, Any
+from app.models.call import TranscriptEntry
 
 
 class TranscriptProcessor:
+    """Utility class for processing and formatting call transcripts."""
 
-    async def process_transcript(
-        self,
-        transcript: List[Dict[str, str]],
-        scenario_type: str
-    ) -> Dict[str, Any]:
-        """Process raw transcript and extract structured data."""
+    @staticmethod
+    def format_for_display(transcript: List[TranscriptEntry]) -> str:
+        """
+        Format transcript for human-readable display.
+        Returns a formatted string with speaker labels and timestamps.
+        """
+        if not transcript:
+            return "No transcript available."
 
-        # Use LLM to extract structured data
-        structured_data = await llm_service.extract_structured_data(
-            transcript,
-            scenario_type
-        )
+        lines = []
+        for i, entry in enumerate(transcript):
+            speaker = "Agent" if entry.role == "agent" else "Driver"
+            timestamp = f"[{entry.timestamp:.1f}s]" if entry.timestamp else ""
+            lines.append(f"{timestamp} {speaker}: {entry.content}")
 
-        # Validate and clean data
-        if scenario_type == "check_in":
-            structured_data = self._validate_check_in_data(structured_data)
-        else:
-            structured_data = self._validate_emergency_data(structured_data)
+        return "\n".join(lines)
 
-        return structured_data
+    @staticmethod
+    def extract_keywords(transcript: List[TranscriptEntry], keywords: List[str]) -> List[Dict[str, Any]]:
+        """
+        Extract occurrences of specific keywords from transcript.
+        Returns list of matches with context.
+        """
+        matches = []
 
-    def _validate_check_in_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and set defaults for check-in data."""
+        for entry in transcript:
+            content_lower = entry.content.lower()
+
+            for keyword in keywords:
+                if keyword.lower() in content_lower:
+                    matches.append({
+                        "keyword": keyword,
+                        "speaker": entry.role,
+                        "content": entry.content,
+                        "timestamp": entry.timestamp
+                    })
+
+        return matches
+
+    @staticmethod
+    def get_conversation_summary(transcript: List[TranscriptEntry]) -> Dict[str, Any]:
+        """
+        Generate basic statistics about the conversation.
+        """
+        if not transcript:
+            return {
+                "total_turns": 0,
+                "agent_turns": 0,
+                "driver_turns": 0,
+                "total_words": 0
+            }
+
+        agent_turns = sum(1 for entry in transcript if entry.role == "agent")
+        driver_turns = sum(1 for entry in transcript if entry.role == "user")
+        total_words = sum(len(entry.content.split()) for entry in transcript)
+
         return {
-            "call_outcome": data.get("call_outcome", "failed"),
-            "driver_status": data.get("driver_status", "in_transit"),
-            "current_location": data.get("current_location"),
-            "eta": data.get("eta"),
-            "delay_reason": data.get("delay_reason"),
-            "unloading_status": data.get("unloading_status"),
-            "pod_reminder_acknowledged": data.get("pod_reminder_acknowledged", False)
+            "total_turns": len(transcript),
+            "agent_turns": agent_turns,
+            "driver_turns": driver_turns,
+            "total_words": total_words,
+            "avg_words_per_turn": total_words / len(transcript) if transcript else 0
         }
 
-    def _validate_emergency_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and set defaults for emergency data."""
-        return {
-            "call_outcome": data.get("call_outcome", "failed"),
-            "emergency_type": data.get("emergency_type", "other"),
-            "safety_status": data.get("safety_status", "unknown"),
-            "injury_status": data.get("injury_status"),
-            "emergency_location": data.get("emergency_location"),
-            "load_secure": data.get("load_secure"),
-            "escalation_status": "escalated"
-        }
+    @staticmethod
+    def search_transcript(transcript: List[TranscriptEntry], query: str) -> List[TranscriptEntry]:
+        """
+        Search transcript for entries containing the query string.
+        Case-insensitive search.
+        """
+        query_lower = query.lower()
+        return [
+            entry for entry in transcript
+            if query_lower in entry.content.lower()
+        ]
 
-    def extract_key_moments(self, transcript: List[Dict[str, str]]) -> List[Dict[str, Any]]:
-        """Extract key moments from transcript for quick review."""
-        key_moments = []
+    @staticmethod
+    def get_driver_responses(transcript: List[TranscriptEntry]) -> List[str]:
+        """Extract all driver responses from transcript."""
+        return [
+            entry.content for entry in transcript
+            if entry.role == "user"
+        ]
 
-        for i, message in enumerate(transcript):
-            content_lower = message.get("content", "").lower()
-
-            # Detect emergency keywords
-            emergency_keywords = ["emergency", "accident", "breakdown", "injured", "help", "blowout"]
-            if any(keyword in content_lower for keyword in emergency_keywords):
-                key_moments.append({
-                    "type": "emergency_mention",
-                    "timestamp_index": i,
-                    "content": message.get("content")
-                })
-
-            # Detect location mentions
-            location_keywords = ["at", "near", "mile marker", "exit", "location"]
-            if any(keyword in content_lower for keyword in location_keywords):
-                key_moments.append({
-                    "type": "location_mention",
-                    "timestamp_index": i,
-                    "content": message.get("content")
-                })
-
-        return key_moments
-
-
-transcript_processor = TranscriptProcessor()
+    @staticmethod
+    def get_agent_responses(transcript: List[TranscriptEntry]) -> List[str]:
+        """Extract all agent responses from transcript."""
+        return [
+            entry.content for entry in transcript
+            if entry.role == "agent"
+        ]

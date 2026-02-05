@@ -1,62 +1,150 @@
-from fastapi import APIRouter, HTTPException
-from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigUpdate
-from app.services.supabase_service import supabase_service
+from fastapi import APIRouter, HTTPException, status
 from typing import List
-from datetime import datetime
+from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigUpdate
+from app.services.supabase_service import SupabaseService
+from app.services.retell_service import RetellService
 
-router = APIRouter(prefix="/api/agent-configs", tags=["agent-configs"])
-
-
-@router.post("", response_model=AgentConfig)
-async def create_agent_config(config: AgentConfigCreate):
-    """Create a new agent configuration."""
-    config_data = config.model_dump()
-    config_data["conversation_config"] = config_data["conversation_config"].model_dump()
-    config_data["created_at"] = datetime.utcnow().isoformat()
-    config_data["updated_at"] = datetime.utcnow().isoformat()
-
-    result = await supabase_service.create_agent_config(config_data)
-    if not result:
-        raise HTTPException(status_code=500, detail="Failed to create agent config")
-
-    return result
+router = APIRouter()
 
 
-@router.get("", response_model=List[AgentConfig])
-async def list_agent_configs():
+@router.post("/", response_model=AgentConfig, status_code=status.HTTP_201_CREATED)
+async def create_agent_config(agent_data: AgentConfigCreate):
+    """
+    Create a new agent configuration.
+    This will also create the agent in Retell AI.
+    """
+    try:
+        db = SupabaseService()
+        retell = RetellService()
+
+        # Create agent in database first
+        agent = await db.create_agent_config(agent_data)
+
+        # Create agent in Retell AI
+        try:
+            retell_agent_id = await retell.create_agent(agent)
+            # Update database with Retell agent ID
+            await db.update_retell_agent_id(agent.id, retell_agent_id)
+            # Refresh agent data
+            agent = await db.get_agent_config(agent.id)
+        except Exception as e:
+            # If Retell creation fails, log but don't fail the request
+            print(f"Warning: Failed to create Retell agent: {e}")
+
+        return agent
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create agent configuration: {str(e)}"
+        )
+
+
+@router.get("/", response_model=List[AgentConfig])
+async def list_agent_configs(active_only: bool = False):
     """List all agent configurations."""
-    return await supabase_service.list_agent_configs()
+    try:
+        db = SupabaseService()
+        agents = await db.list_agent_configs(active_only=active_only)
+        return agents
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list agent configurations: {str(e)}"
+        )
 
 
-@router.get("/{config_id}", response_model=AgentConfig)
-async def get_agent_config(config_id: str):
+@router.get("/{agent_id}", response_model=AgentConfig)
+async def get_agent_config(agent_id: str):
     """Get a specific agent configuration."""
-    result = await supabase_service.get_agent_config(config_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Agent config not found")
-    return result
+    try:
+        db = SupabaseService()
+        agent = await db.get_agent_config(agent_id)
+
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent configuration not found"
+            )
+
+        return agent
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get agent configuration: {str(e)}"
+        )
 
 
-@router.put("/{config_id}", response_model=AgentConfig)
-async def update_agent_config(config_id: str, config: AgentConfigUpdate):
-    """Update an agent configuration."""
-    update_data = {k: v for k, v in config.model_dump(exclude_unset=True).items() if v is not None}
+@router.put("/{agent_id}", response_model=AgentConfig)
+async def update_agent_config(agent_id: str, update_data: AgentConfigUpdate):
+    """
+    Update an agent configuration.
+    This will also update the agent in Retell AI if it exists.
+    """
+    try:
+        db = SupabaseService()
+        retell = RetellService()
 
-    if "conversation_config" in update_data:
-        update_data["conversation_config"] = update_data["conversation_config"].model_dump()
+        # Get existing agent
+        existing_agent = await db.get_agent_config(agent_id)
+        if not existing_agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent configuration not found"
+            )
 
-    result = await supabase_service.update_agent_config(config_id, update_data)
-    if not result:
-        raise HTTPException(status_code=404, detail="Agent config not found")
+        # Update in database
+        agent = await db.update_agent_config(agent_id, update_data)
 
-    return result
+        # Update in Retell AI if agent exists there
+        if agent.retell_agent_id:
+            try:
+                await retell.update_agent(agent.retell_agent_id, agent)
+            except Exception as e:
+                print(f"Warning: Failed to update Retell agent: {e}")
+
+        return agent
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update agent configuration: {str(e)}"
+        )
 
 
-@router.delete("/{config_id}")
-async def delete_agent_config(config_id: str):
+@router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_agent_config(agent_id: str):
     """Delete an agent configuration."""
-    success = await supabase_service.delete_agent_config(config_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Agent config not found")
+    try:
+        db = SupabaseService()
 
-    return {"message": "Agent config deleted successfully"}
+        # Check if agent exists
+        agent = await db.get_agent_config(agent_id)
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent configuration not found"
+            )
+
+        # Delete from database (Retell agent can stay active)
+        success = await db.delete_agent_config(agent_id)
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete agent configuration"
+            )
+
+        return None
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete agent configuration: {str(e)}"
+        )

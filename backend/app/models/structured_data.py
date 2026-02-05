@@ -1,50 +1,32 @@
-from pydantic import BaseModel
-from typing import Optional
-from enum import Enum
-
-
-class CallOutcome(str, Enum):
-    SUCCESS = "success"
-    PARTIAL = "partial"
-    FAILED = "failed"
-
-
-class DriverStatus(str, Enum):
-    IN_TRANSIT = "in_transit"
-    ARRIVED = "arrived"
-    UNLOADING = "unloading"
-    COMPLETED = "completed"
-
-
-class EmergencyType(str, Enum):
-    ACCIDENT = "accident"
-    BREAKDOWN = "breakdown"
-    MEDICAL = "medical"
-    TIRE_BLOWOUT = "tire_blowout"
-    OTHER = "other"
-
-
-class SafetyStatus(str, Enum):
-    SAFE = "safe"
-    UNSAFE = "unsafe"
-    UNKNOWN = "unknown"
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
 
 
 class CheckInData(BaseModel):
-    call_outcome: CallOutcome
-    driver_status: DriverStatus
+    """Structured data for check-in scenario."""
+    call_outcome: Literal["In-Transit Update", "Arrival Confirmation", "Incomplete"] = "Incomplete"
+    driver_status: Optional[Literal["Driving", "Delayed", "Arrived", "Unloading"]] = None
     current_location: Optional[str] = None
     eta: Optional[str] = None
-    delay_reason: Optional[str] = None
-    unloading_status: Optional[str] = None
+    delay_reason: Optional[str] = "None"
+    unloading_status: Optional[str] = "N/A"
     pod_reminder_acknowledged: bool = False
 
 
 class EmergencyData(BaseModel):
-    call_outcome: CallOutcome
-    emergency_type: EmergencyType
-    safety_status: SafetyStatus
+    """Structured data for emergency scenario."""
+    call_outcome: Literal["Emergency Escalation", "Incomplete"] = "Emergency Escalation"
+    emergency_type: Optional[Literal["Accident", "Breakdown", "Medical", "Other"]] = None
+    safety_status: Optional[str] = None
     injury_status: Optional[str] = None
     emergency_location: Optional[str] = None
     load_secure: Optional[bool] = None
-    escalation_status: str = "escalated"
+    escalation_status: str = "Connected to Human Dispatcher"
+
+
+class StructuredDataExtraction(BaseModel):
+    """Container for extracted structured data with scenario type."""
+    scenario_type: Literal["check_in", "emergency"]
+    data: CheckInData | EmergencyData
+    extraction_confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+    notes: Optional[str] = None

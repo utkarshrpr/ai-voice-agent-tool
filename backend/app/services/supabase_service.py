@@ -1,73 +1,156 @@
 from supabase import create_client, Client
-from app.config import get_settings
-from typing import Optional, List, Dict, Any
-from datetime import datetime
+from typing import List, Optional, Dict, Any
+from app.config import settings
+from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigUpdate
+from app.models.call import Call, CallCreate, CallUpdate
 
 
 class SupabaseService:
+    """Service for interacting with Supabase database."""
+
     def __init__(self):
-        settings = get_settings()
-        self.client: Client = create_client(settings.supabase_url, settings.supabase_key)
+        self.client: Client = create_client(
+            settings.supabase_url,
+            settings.supabase_key
+        )
 
-    # Agent Config operations
-    async def create_agent_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
-        response = self.client.table("agent_configs").insert(config_data).execute()
-        return response.data[0] if response.data else None
+    # Agent Configuration Methods
 
-    async def get_agent_config(self, config_id: str) -> Optional[Dict[str, Any]]:
-        response = self.client.table("agent_configs").select("*").eq("id", config_id).execute()
-        return response.data[0] if response.data else None
+    async def create_agent_config(self, agent_data: AgentConfigCreate) -> AgentConfig:
+        """Create a new agent configuration."""
+        data = agent_data.model_dump()
+        data["conversation_config"] = agent_data.conversation_config.model_dump()
 
-    async def list_agent_configs(self) -> List[Dict[str, Any]]:
-        response = self.client.table("agent_configs").select("*").order("created_at", desc=True).execute()
-        return response.data if response.data else []
+        response = self.client.table("agent_configs").insert(data).execute()
+        return AgentConfig(**response.data[0])
 
-    async def update_agent_config(self, config_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        update_data["updated_at"] = datetime.utcnow().isoformat()
-        response = self.client.table("agent_configs").update(update_data).eq("id", config_id).execute()
-        return response.data[0] if response.data else None
+    async def get_agent_config(self, agent_id: str) -> Optional[AgentConfig]:
+        """Get an agent configuration by ID."""
+        response = self.client.table("agent_configs").select("*").eq("id", agent_id).execute()
 
-    async def delete_agent_config(self, config_id: str) -> bool:
-        response = self.client.table("agent_configs").delete().eq("id", config_id).execute()
-        return bool(response.data)
+        if not response.data:
+            return None
 
-    # Call operations
-    async def create_call(self, call_data: Dict[str, Any]) -> Dict[str, Any]:
-        response = self.client.table("calls").insert(call_data).execute()
-        return response.data[0] if response.data else None
+        return AgentConfig(**response.data[0])
 
-    async def get_call(self, call_id: str) -> Optional[Dict[str, Any]]:
+    async def list_agent_configs(self, active_only: bool = False) -> List[AgentConfig]:
+        """List all agent configurations."""
+        query = self.client.table("agent_configs").select("*")
+
+        if active_only:
+            query = query.eq("is_active", True)
+
+        response = query.order("created_at", desc=True).execute()
+        return [AgentConfig(**item) for item in response.data]
+
+    async def update_agent_config(
+        self,
+        agent_id: str,
+        update_data: AgentConfigUpdate
+    ) -> Optional[AgentConfig]:
+        """Update an agent configuration."""
+        data = update_data.model_dump(exclude_unset=True)
+
+        if "conversation_config" in data and data["conversation_config"]:
+            data["conversation_config"] = data["conversation_config"].model_dump()
+
+        if not data:
+            return await self.get_agent_config(agent_id)
+
+        response = self.client.table("agent_configs").update(data).eq("id", agent_id).execute()
+
+        if not response.data:
+            return None
+
+        return AgentConfig(**response.data[0])
+
+    async def delete_agent_config(self, agent_id: str) -> bool:
+        """Delete an agent configuration."""
+        response = self.client.table("agent_configs").delete().eq("id", agent_id).execute()
+        return len(response.data) > 0
+
+    async def update_retell_agent_id(self, agent_id: str, retell_agent_id: str) -> None:
+        """Update the Retell agent ID for an agent configuration."""
+        self.client.table("agent_configs").update(
+            {"retell_agent_id": retell_agent_id}
+        ).eq("id", agent_id).execute()
+
+    # Call Methods
+
+    async def create_call(self, call_data: CallCreate) -> Call:
+        """Create a new call record."""
+        data = call_data.model_dump()
+        response = self.client.table("calls").insert(data).execute()
+        return Call(**response.data[0])
+
+    async def get_call(self, call_id: str) -> Optional[Call]:
+        """Get a call by ID."""
         response = self.client.table("calls").select("*").eq("id", call_id).execute()
-        return response.data[0] if response.data else None
 
-    async def list_calls(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
-        response = (
-            self.client.table("calls")
-            .select("*")
-            .order("created_at", desc=True)
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-        return response.data if response.data else []
+        if not response.data:
+            return None
 
-    async def update_call(self, call_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        response = self.client.table("calls").update(update_data).eq("id", call_id).execute()
-        return response.data[0] if response.data else None
+        return Call(**response.data[0])
 
-    # Call Event operations
-    async def create_call_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        response = self.client.table("call_events").insert(event_data).execute()
-        return response.data[0] if response.data else None
+    async def get_call_by_retell_id(self, retell_call_id: str) -> Optional[Call]:
+        """Get a call by Retell call ID."""
+        response = self.client.table("calls").select("*").eq(
+            "retell_call_id", retell_call_id
+        ).execute()
 
-    async def list_call_events(self, call_id: str) -> List[Dict[str, Any]]:
-        response = (
-            self.client.table("call_events")
-            .select("*")
-            .eq("call_id", call_id)
-            .order("timestamp", desc=False)
-            .execute()
-        )
-        return response.data if response.data else []
+        if not response.data:
+            return None
 
+        return Call(**response.data[0])
 
-supabase_service = SupabaseService()
+    async def list_calls(
+        self,
+        agent_config_id: Optional[str] = None,
+        limit: int = 50
+    ) -> List[Call]:
+        """List calls with optional filtering."""
+        query = self.client.table("calls").select("*")
+
+        if agent_config_id:
+            query = query.eq("agent_config_id", agent_config_id)
+
+        response = query.order("created_at", desc=True).limit(limit).execute()
+        return [Call(**item) for item in response.data]
+
+    async def update_call(self, call_id: str, update_data: CallUpdate) -> Optional[Call]:
+        """Update a call record."""
+        data = update_data.model_dump(exclude_unset=True)
+
+        # Convert transcript list to JSON-serializable format
+        if "transcript" in data and data["transcript"]:
+            data["transcript"] = [entry.model_dump() if hasattr(entry, "model_dump") else entry for entry in data["transcript"]]
+
+        if not data:
+            return await self.get_call(call_id)
+
+        response = self.client.table("calls").update(data).eq("id", call_id).execute()
+
+        if not response.data:
+            return None
+
+        return Call(**response.data[0])
+
+    async def delete_call(self, call_id: str) -> bool:
+        """Delete a call record."""
+        response = self.client.table("calls").delete().eq("id", call_id).execute()
+        return len(response.data) > 0
+
+    # Call Events Methods
+
+    async def create_call_event(
+        self,
+        call_id: str,
+        event_type: str,
+        event_data: Dict[str, Any]
+    ) -> None:
+        """Create a call event for logging."""
+        self.client.table("call_events").insert({
+            "call_id": call_id,
+            "event_type": event_type,
+            "event_data": event_data
+        }).execute()

@@ -1,21 +1,39 @@
 from pydantic_settings import BaseSettings
-from functools import lru_cache
+from typing import List
 
 
 class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    # Supabase
     supabase_url: str
     supabase_key: str
+
+    # Retell AI
     retell_api_key: str
-    openai_api_key: str = ""
-    anthropic_api_key: str = ""
-    backend_url: str = "http://localhost:8000"
-    frontend_url: str = "http://localhost:5173"
-    llm_provider: str = "anthropic"  # or "openai"
+
+    # LLM (at least one required)
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+
+    # Application
+    environment: str = "development"
+    debug: bool = True
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     class Config:
         env_file = ".env"
+        case_sensitive = False
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Parse CORS origins string into list."""
+        return [origin.strip() for origin in self.cors_origins.split(",")]
+
+    def validate_llm_config(self) -> bool:
+        """Ensure at least one LLM API key is configured."""
+        return bool(self.anthropic_api_key or self.openai_api_key)
 
 
-@lru_cache()
-def get_settings():
-    return Settings()
+# Global settings instance
+settings = Settings()

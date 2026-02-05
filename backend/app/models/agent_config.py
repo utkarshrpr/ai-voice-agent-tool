@@ -1,51 +1,47 @@
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
 from datetime import datetime
-from enum import Enum
-
-
-class ScenarioType(str, Enum):
-    CHECK_IN = "check_in"
-    EMERGENCY = "emergency"
 
 
 class ConversationConfig(BaseModel):
-    voice_id: str = "default"
+    """Retell AI conversation configuration settings."""
     enable_backchannel: bool = True
-    backchannel_frequency: float = 0.8
+    backchannel_frequency: float = Field(default=0.5, ge=0.0, le=1.0)
     enable_filler_words: bool = True
-    filler_words: list[str] = ["um", "uh", "you know"]
-    interruption_sensitivity: float = 0.5
-    responsiveness: float = 0.7
-    ambient_sound: Optional[str] = "office"
+    interruption_sensitivity: float = Field(default=0.5, ge=0.0, le=1.0)
+    responsiveness: float = Field(default=0.8, ge=0.0, le=1.0)
+    voice_id: str = "11labs-Adrian"
 
 
-class AgentConfigCreate(BaseModel):
-    name: str
-    description: str
-    system_prompt: str
-    conversation_config: ConversationConfig
-    scenario_type: ScenarioType
+class AgentConfigBase(BaseModel):
+    """Base agent configuration model."""
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    scenario_type: Literal["check_in", "emergency"]
+    system_prompt: str = Field(..., min_length=10)
+    conversation_config: ConversationConfig = Field(default_factory=ConversationConfig)
     is_active: bool = True
 
 
+class AgentConfigCreate(AgentConfigBase):
+    """Model for creating a new agent configuration."""
+    pass
+
+
 class AgentConfigUpdate(BaseModel):
-    name: Optional[str] = None
+    """Model for updating an agent configuration."""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    system_prompt: Optional[str] = None
+    scenario_type: Optional[Literal["check_in", "emergency"]] = None
+    system_prompt: Optional[str] = Field(None, min_length=10)
     conversation_config: Optional[ConversationConfig] = None
-    scenario_type: Optional[ScenarioType] = None
     is_active: Optional[bool] = None
 
 
-class AgentConfig(BaseModel):
+class AgentConfig(AgentConfigBase):
+    """Complete agent configuration model with database fields."""
     id: str
-    name: str
-    description: str
-    system_prompt: str
-    conversation_config: Dict[str, Any]
-    scenario_type: str
-    is_active: bool
+    retell_agent_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

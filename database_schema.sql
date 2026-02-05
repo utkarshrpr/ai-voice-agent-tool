@@ -1,134 +1,172 @@
--- Supabase Database Schema for AI Voice Agent Tool
+-- AI Voice Agent Tool Database Schema
+-- PostgreSQL/Supabase
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Table: agent_configs
+-- Agent Configurations Table
 CREATE TABLE agent_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    scenario_type VARCHAR(50) NOT NULL CHECK (scenario_type IN ('check_in', 'emergency')),
     system_prompt TEXT NOT NULL,
-    conversation_config JSONB NOT NULL DEFAULT '{}'::jsonb,
-    scenario_type TEXT NOT NULL CHECK (scenario_type IN ('check_in', 'emergency')),
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    conversation_config JSONB NOT NULL DEFAULT '{
+        "enable_backchannel": true,
+        "backchannel_frequency": 0.5,
+        "enable_filler_words": true,
+        "interruption_sensitivity": 0.5,
+        "responsiveness": 0.8,
+        "voice_id": "11labs-Adrian"
+    }'::jsonb,
+    retell_agent_id VARCHAR(255),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Table: calls
+-- Calls Table
 CREATE TABLE calls (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     agent_config_id UUID NOT NULL REFERENCES agent_configs(id) ON DELETE CASCADE,
-    driver_name TEXT NOT NULL,
-    driver_phone TEXT NOT NULL,
-    load_number TEXT NOT NULL,
-    call_status TEXT NOT NULL CHECK (call_status IN ('initiated', 'in_progress', 'completed', 'failed')),
-    retell_call_id TEXT,
+    retell_call_id VARCHAR(255),
+    driver_name VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(50),
+    load_number VARCHAR(100) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'error')),
+    transcript JSONB,
+    structured_data JSONB,
+    call_duration INTEGER,
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at TIMESTAMP WITH TIME ZONE,
-    duration_seconds INTEGER,
-    raw_transcript JSONB,
-    structured_data JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Table: call_events
+-- Call Events Table (for debugging and monitoring)
 CREATE TABLE call_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     call_id UUID NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
-    event_type TEXT NOT NULL,
-    event_data JSONB NOT NULL DEFAULT '{}'::jsonb,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    event_type VARCHAR(100) NOT NULL,
+    event_data JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indexes for better query performance
-CREATE INDEX idx_agent_configs_scenario ON agent_configs(scenario_type);
+-- Indexes for performance
+CREATE INDEX idx_agent_configs_scenario_type ON agent_configs(scenario_type);
 CREATE INDEX idx_agent_configs_active ON agent_configs(is_active);
-CREATE INDEX idx_calls_agent_config ON calls(agent_config_id);
-CREATE INDEX idx_calls_status ON calls(call_status);
-CREATE INDEX idx_calls_created ON calls(created_at DESC);
+CREATE INDEX idx_calls_agent_config_id ON calls(agent_config_id);
+CREATE INDEX idx_calls_status ON calls(status);
+CREATE INDEX idx_calls_created_at ON calls(created_at DESC);
 CREATE INDEX idx_call_events_call_id ON call_events(call_id);
-CREATE INDEX idx_call_events_timestamp ON call_events(timestamp);
+CREATE INDEX idx_call_events_created_at ON call_events(created_at DESC);
 
--- Function to update updated_at timestamp
+-- Updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_at = NOW();
     RETURN NEW;
 END;
 $$ language 'plpgsql';
 
--- Trigger to auto-update updated_at
-CREATE TRIGGER update_agent_configs_updated_at
-    BEFORE UPDATE ON agent_configs
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- Add triggers for updated_at
+CREATE TRIGGER update_agent_configs_updated_at BEFORE UPDATE ON agent_configs
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Sample agent configurations for testing
+CREATE TRIGGER update_calls_updated_at BEFORE UPDATE ON calls
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Check-in Agent
-INSERT INTO agent_configs (name, description, system_prompt, conversation_config, scenario_type, is_active)
-VALUES (
+-- Sample Agent Configurations
+INSERT INTO agent_configs (name, description, scenario_type, system_prompt, conversation_config) VALUES
+(
     'Driver Check-in Agent',
-    'Agent for checking in with drivers about their delivery status',
-    'You are a friendly logistics coordinator calling to check in with a driver. Your goals are:
-
-1. Determine if the driver is in-transit or has arrived at the delivery location
-2. If in-transit:
-   - Get their current location
-   - Ask for estimated time of arrival (ETA)
-   - If delayed, understand the reason
-3. If arrived:
-   - Check if they have started unloading
-   - Remind them about proof of delivery (POD) procedures
-4. Always be professional, friendly, and understanding
-5. If the driver mentions ANY emergency situation, immediately pivot to safety questions
-
-Keep the conversation natural and conversational. Use filler words occasionally to sound human.',
-    '{
-        "voice_id": "default",
-        "enable_backchannel": true,
-        "backchannel_frequency": 0.8,
-        "enable_filler_words": true,
-        "filler_words": ["um", "uh", "you know"],
-        "interruption_sensitivity": 0.5,
-        "responsiveness": 0.7,
-        "ambient_sound": "office"
-    }'::jsonb,
+    'Handles end-to-end driver check-in calls for logistics operations',
     'check_in',
-    true
-);
+    'You are a professional dispatch assistant calling to check in with a truck driver about their current load.
 
--- Emergency Protocol Agent
-INSERT INTO agent_configs (name, description, system_prompt, conversation_config, scenario_type, is_active)
-VALUES (
-    'Emergency Protocol Agent',
-    'Agent for handling emergency situations with immediate safety focus',
-    'You are an emergency response coordinator. When an emergency is detected:
+Your primary goal is to gather accurate status information through a natural, conversational approach.
 
-1. IMMEDIATELY ask: "Are you safe right now? Do you or anyone else need immediate medical attention?"
-2. Determine the type of emergency (accident, breakdown, medical, tire blowout, other)
-3. Get the exact location of the emergency
-4. Confirm if the load is secure
-5. Reassure them that help is being dispatched
-6. Stay calm, professional, and focused on safety
+CONVERSATION FLOW:
+1. Start with a friendly greeting and mention the specific load number
+2. Ask an open-ended question: "Can you give me an update on your status?"
+3. Based on their response, dynamically adjust your questions
 
-NEVER ask about delivery timelines or non-critical matters during an emergency.
-Always prioritize human safety over cargo or schedules.
+IF DRIVER IS IN TRANSIT:
+- Ask about current location and ETA
+- Inquire about any delays or issues
+- Remind them about POD (Proof of Delivery) requirements
 
-Keep your tone calm and reassuring while gathering critical information efficiently.',
+IF DRIVER HAS ARRIVED:
+- Ask about unloading status
+- Get dock door number if applicable
+- Check if they need lumper service
+- Confirm expected completion time
+
+IMPORTANT GUIDELINES:
+- Be conversational and professional
+- Listen for emergency keywords (accident, breakdown, hurt, injured, medical)
+- If emergency detected, IMMEDIATELY pivot to emergency protocol
+- Handle one-word answers by politely probing for more detail
+- If driver is unresponsive after 2-3 attempts, politely end the call
+- For noisy environments, ask driver to repeat up to 2 times
+- Stay non-confrontational if information conflicts with system data
+
+EMERGENCY PROTOCOL:
+If driver mentions accident, breakdown, injury, or emergency:
+1. Immediately ask: "Is everyone safe?"
+2. Confirm location and situation
+3. Ask if load is secure
+4. State: "I''m connecting you to a human dispatcher right away"
+5. End conversation and escalate',
     '{
-        "voice_id": "default",
         "enable_backchannel": true,
         "backchannel_frequency": 0.6,
-        "enable_filler_words": false,
-        "filler_words": [],
-        "interruption_sensitivity": 0.3,
-        "responsiveness": 0.9,
-        "ambient_sound": null
-    }'::jsonb,
+        "enable_filler_words": true,
+        "interruption_sensitivity": 0.7,
+        "responsiveness": 0.8,
+        "voice_id": "11labs-Adrian"
+    }'::jsonb
+),
+(
+    'Emergency Response Agent',
+    'Specialized agent for handling driver emergencies with immediate escalation',
     'emergency',
-    true
+    'You are an emergency dispatch assistant. A driver is reporting an urgent situation.
+
+Your ONLY goal is to quickly gather critical safety information and escalate to a human dispatcher.
+
+EMERGENCY PROTOCOL:
+1. FIRST: Ask "Is everyone safe? Is anyone injured?"
+2. Get exact location: "What is your exact location right now?"
+3. Understand the situation: "Can you briefly describe what happened?"
+4. Check load security: "Is your load secure?"
+5. IMMEDIATELY escalate: "I understand. I''m connecting you to a human dispatcher right now. Stay on the line."
+
+CRITICAL RULES:
+- Keep questions SHORT and DIRECT
+- Do NOT try to solve the problem
+- Do NOT provide advice
+- Do NOT spend time on non-critical details
+- Your job is to gather essential info and escalate FAST
+- Maximum 5 questions before escalation
+
+TONE:
+- Calm and professional
+- Reassuring but urgent
+- Clear and direct',
+    '{
+        "enable_backchannel": false,
+        "backchannel_frequency": 0.0,
+        "enable_filler_words": false,
+        "interruption_sensitivity": 0.9,
+        "responsiveness": 1.0,
+        "voice_id": "11labs-Adrian"
+    }'::jsonb
 );
+
+-- Grant permissions (adjust based on your Supabase setup)
+-- These are examples - adjust role names as needed
+-- GRANT ALL ON agent_configs TO authenticated;
+-- GRANT ALL ON calls TO authenticated;
+-- GRANT ALL ON call_events TO authenticated;

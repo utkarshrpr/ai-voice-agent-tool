@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { agentConfigApi, callApi } from '../services/api';
-import type { AgentConfig, Call } from '../types';
 import CallTriggerForm from '../components/CallTrigger/CallTriggerForm';
 import CallStatusIndicator from '../components/CallTrigger/CallStatusIndicator';
+import api from '../services/api';
+import type { AgentConfig, Call } from '../types';
 
 export default function Dashboard() {
-  const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>([]);
+  const [agents, setAgents] = useState<AgentConfig[]>([]);
   const [recentCalls, setRecentCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCall, setActiveCall] = useState<Call | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -16,33 +16,29 @@ export default function Dashboard() {
 
   const loadData = async () => {
     try {
-      const [configs, calls] = await Promise.all([
-        agentConfigApi.list(),
-        callApi.list(5),
+      setLoading(true);
+      setError(null);
+      const [agentsData, callsData] = await Promise.all([
+        api.listAgentConfigs(true), // Only active agents
+        api.listCalls(undefined, 10), // Last 10 calls
       ]);
-      setAgentConfigs(configs.filter((c) => c.is_active));
-      setRecentCalls(calls);
-    } catch (error) {
-      console.error('Failed to load data:', error);
+      setAgents(agentsData);
+      setRecentCalls(callsData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCallInitiated = (call: Call) => {
-    setActiveCall(call);
-    setRecentCalls((prev) => [call, ...prev]);
-  };
-
-  const handleCallCompleted = () => {
-    setActiveCall(null);
-    loadData();
+  const handleCallComplete = () => {
+    loadData(); // Refresh recent calls
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading...</div>
+        <div className="text-gray-500">Loading dashboard...</div>
       </div>
     );
   }
@@ -51,101 +47,91 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Trigger test calls and monitor agent performance
+        <p className="mt-1 text-sm text-gray-600">
+          Trigger web calls and monitor recent activity
         </p>
       </div>
 
-      {activeCall && (
-        <CallStatusIndicator call={activeCall} onComplete={handleCallCompleted} />
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Initiate Test Call
-          </h3>
+      {agents.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
+          No active agents configured. Please create an agent in the Agent Configuration page first.
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Call Trigger Form */}
+        <div>
           <CallTriggerForm
-            agentConfigs={agentConfigs}
-            onCallInitiated={handleCallInitiated}
+            agents={agents}
+            onCallComplete={handleCallComplete}
           />
         </div>
 
+        {/* Recent Calls */}
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Recent Calls
-          </h3>
-          <div className="space-y-3">
-            {recentCalls.length === 0 ? (
-              <p className="text-sm text-gray-500">No calls yet</p>
-            ) : (
-              recentCalls.map((call) => (
+          <h3 className="text-lg font-semibold mb-4">Recent Calls</h3>
+          {recentCalls.length === 0 ? (
+            <p className="text-gray-500 text-sm">No calls yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentCalls.slice(0, 5).map((call) => (
                 <div
                   key={call.id}
-                  className="border-l-4 border-blue-500 pl-4 py-2"
+                  className="p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
                 >
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-start mb-2">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {call.driver_name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Load: {call.load_number}
-                      </p>
+                      <p className="font-medium text-gray-900">{call.driver_name}</p>
+                      <p className="text-sm text-gray-500">Load: {call.load_number}</p>
                     </div>
-                    <div className="text-right">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          call.call_status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : call.call_status === 'failed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {call.call_status}
-                      </span>
-                      {call.duration_seconds && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {call.duration_seconds}s
-                        </p>
-                      )}
-                    </div>
+                    <CallStatusIndicator status={call.status} />
                   </div>
+                  <p className="text-xs text-gray-400">
+                    {new Date(call.created_at).toLocaleString()}
+                  </p>
+                  {call.call_duration && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Duration: {Math.floor(call.call_duration / 60)}m {call.call_duration % 60}s
+                    </p>
+                  )}
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
+          {recentCalls.length > 5 && (
+            <div className="mt-4 text-center">
+              <a
+                href="/history"
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                View all calls →
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Active Agent Configurations
-        </h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {agentConfigs.map((config) => (
-            <div
-              key={config.id}
-              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-            >
-              <h4 className="text-sm font-medium text-gray-900">
-                {config.name}
-              </h4>
-              <p className="mt-1 text-xs text-gray-500">{config.description}</p>
-              <div className="mt-2">
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    config.scenario_type === 'check_in'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {config.scenario_type}
-                </span>
-              </div>
-            </div>
-          ))}
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white shadow rounded-lg p-6">
+          <h3 className="text-sm font-medium text-gray-500">Active Agents</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{agents.length}</p>
+        </div>
+        <div className="bg-white shadow rounded-lg p-6">
+          <h3 className="text-sm font-medium text-gray-500">Total Calls</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{recentCalls.length}</p>
+        </div>
+        <div className="bg-white shadow rounded-lg p-6">
+          <h3 className="text-sm font-medium text-gray-500">Completed Calls</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {recentCalls.filter((c) => c.status === 'completed').length}
+          </p>
         </div>
       </div>
     </div>
