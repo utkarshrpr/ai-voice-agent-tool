@@ -51,8 +51,7 @@ class SupabaseService:
         """Update an agent configuration."""
         data = update_data.model_dump(exclude_unset=True)
 
-        if "conversation_config" in data and data["conversation_config"]:
-            data["conversation_config"] = data["conversation_config"].model_dump()
+        # conversation_config is already a dict after model_dump(), no need to dump again
 
         if not data:
             return await self.get_agent_config(agent_id)
