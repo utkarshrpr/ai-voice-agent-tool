@@ -152,7 +152,18 @@ Return ONLY the JSON object, no other text."""
         """
         Main method to extract structured data based on scenario type.
         Returns a dictionary representation of the structured data.
+
+        Automatically detects emergencies even in check_in calls.
         """
+        # Check if emergency keywords are present in the transcript
+        transcript_text = self._format_transcript(transcript)
+        is_emergency_detected = self.detect_emergency_keywords(transcript_text)
+
+        # Override scenario type if emergency detected
+        if is_emergency_detected:
+            print(f"Emergency detected in transcript! Switching to emergency extraction.")
+            scenario_type = "emergency"
+
         if scenario_type == "check_in":
             data = await self.extract_check_in_data(transcript, driver_name, load_number)
         elif scenario_type == "emergency":
