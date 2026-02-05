@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Activity, Phone, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import CallTriggerForm from '../components/CallTrigger/CallTriggerForm';
@@ -7,6 +8,7 @@ import api from '../services/api';
 import type { AgentConfig, Call } from '../types';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<AgentConfig[]>([]);
   const [recentCalls, setRecentCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +193,8 @@ export default function Dashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.4 + index * 0.05 }}
                   whileHover={{ scale: 1.02 }}
-                  className="glass-card-hover p-4"
+                  onClick={() => navigate('/history', { state: { selectedCallId: call.id } })}
+                  className="glass-card-hover p-4 cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>

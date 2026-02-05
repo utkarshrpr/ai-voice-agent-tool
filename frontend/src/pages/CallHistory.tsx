@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Trash2, Clock, Phone, AlertCircle } from 'lucide-react';
 import CallResultsView from '../components/CallResults/CallResultsView';
@@ -7,6 +8,7 @@ import api from '../services/api';
 import type { Call } from '../types';
 
 export default function CallHistory() {
+  const location = useLocation();
   const [calls, setCalls] = useState<Call[]>([]);
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
@@ -16,6 +18,19 @@ export default function CallHistory() {
   useEffect(() => {
     loadCalls();
   }, []);
+
+  // Auto-select call if navigated from Dashboard
+  useEffect(() => {
+    const state = location.state as { selectedCallId?: string } | null;
+    if (state?.selectedCallId && calls.length > 0) {
+      const callToSelect = calls.find(c => c.id === state.selectedCallId);
+      if (callToSelect) {
+        setSelectedCall(callToSelect);
+        // Clear the state after using it
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, calls]);
 
   const loadCalls = async () => {
     try {
