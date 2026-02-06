@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, Clock, Calendar, User, Package, Phone as PhoneIcon, AlertCircle } from 'lucide-react';
+import { RefreshCw, Clock, Calendar, User, Package, Phone as PhoneIcon, AlertCircle, Volume2 } from 'lucide-react';
 import CallStatusIndicator from '../CallTrigger/CallStatusIndicator';
 import StructuredDataDisplay from './StructuredDataDisplay';
 import TranscriptDisplay from './TranscriptDisplay';
@@ -109,6 +109,39 @@ export default function CallResultsView({ call, onUpdate }: Props) {
           )}
         </div>
       </div>
+
+      {/* Call Recording Player */}
+      {call.recording_url && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-4 bg-gradient-to-br from-accent-primary/5 to-accent-secondary/5 border-accent-primary/30"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-accent-primary to-accent-secondary rounded-lg flex items-center justify-center shadow-glow-sm">
+              <Volume2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Call Recording</p>
+              <p className="text-xs text-gray-400">Listen to the full conversation</p>
+            </div>
+          </div>
+          <audio
+            controls
+            className="w-full h-10"
+            style={{
+              filter: 'brightness(0.9) contrast(1.1)',
+              borderRadius: '8px',
+            }}
+            preload="metadata"
+          >
+            <source src={call.recording_url} type="audio/mpeg" />
+            <source src={call.recording_url} type="audio/wav" />
+            <source src={call.recording_url} type="audio/webm" />
+            Your browser does not support the audio element.
+          </audio>
+        </motion.div>
+      )}
 
       {/* Sync from Retell Button */}
       <div className="glass-card p-4">

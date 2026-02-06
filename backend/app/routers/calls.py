@@ -415,13 +415,19 @@ async def sync_call_from_retell(call_id: str):
         if start_timestamp_ms:
             started_at = datetime.fromtimestamp(start_timestamp_ms / 1000)
 
+        # Extract recording URL (S3 link from Retell)
+        recording_url = call_details.get("recording_url") or call_details.get("recording")
+        if recording_url:
+            print(f"Recording URL found: {recording_url}")
+
         # Update call with all info
         update = CallUpdate(
             status=new_status,
             transcript=transcript,
             call_duration=call_duration,
             started_at=started_at,
-            ended_at=ended_at or datetime.now()
+            ended_at=ended_at or datetime.now(),
+            recording_url=recording_url
         )
 
         await db.update_call(call_id, update)

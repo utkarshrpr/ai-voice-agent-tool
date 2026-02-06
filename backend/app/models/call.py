@@ -41,6 +41,7 @@ class CallUpdate(BaseModel):
     call_duration: Optional[int] = None
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
+    recording_url: Optional[str] = None
 
 
 class Call(CallBase):
@@ -52,6 +53,7 @@ class Call(CallBase):
     transcript: Optional[List[TranscriptEntry]] = None
     structured_data: Optional[Dict[str, Any]] = None
     call_duration: Optional[int] = None
+    recording_url: Optional[str] = None
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     created_at: datetime

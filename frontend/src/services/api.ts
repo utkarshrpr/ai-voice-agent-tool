@@ -91,6 +91,9 @@ class ApiService {
     completed_calls: number;
     in_progress_calls: number;
     failed_calls: number;
+    avg_call_duration: number | null;
+    min_call_duration: number | null;
+    max_call_duration: number | null;
   }> {
     const response = await this.client.get('/calls/stats');
     return response.data;

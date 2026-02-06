@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Activity, Phone, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Activity, Phone, CheckCircle, Clock, AlertCircle, Timer, TrendingUp, TrendingDown } from 'lucide-react';
 import CallTriggerForm from '../components/CallTrigger/CallTriggerForm';
 import CallStatusIndicator from '../components/CallTrigger/CallStatusIndicator';
 import api from '../services/api';
@@ -16,6 +16,9 @@ export default function Dashboard() {
     completed_calls: 0,
     in_progress_calls: 0,
     failed_calls: 0,
+    avg_call_duration: null as number | null,
+    min_call_duration: null as number | null,
+    max_call_duration: null as number | null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,24 +50,55 @@ export default function Dashboard() {
     loadData(); // Refresh recent calls
   };
 
+  const formatDuration = (seconds: number | null): string => {
+    if (seconds === null) return 'N/A';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
+
   const statsCards = [
     {
       label: 'Active Agents',
       value: agents.length,
       icon: Activity,
       gradient: 'from-blue-500 to-cyan-500',
+      type: 'number' as const,
     },
     {
       label: 'Total Calls',
       value: callStats.total_calls,
       icon: Phone,
       gradient: 'from-purple-500 to-pink-500',
+      type: 'number' as const,
     },
     {
       label: 'Completed',
       value: callStats.completed_calls,
       icon: CheckCircle,
       gradient: 'from-green-500 to-emerald-500',
+      type: 'number' as const,
+    },
+    {
+      label: 'Avg Duration',
+      value: callStats.avg_call_duration,
+      icon: Timer,
+      gradient: 'from-orange-500 to-amber-500',
+      type: 'duration' as const,
+    },
+    {
+      label: 'Min Duration',
+      value: callStats.min_call_duration,
+      icon: TrendingDown,
+      gradient: 'from-teal-500 to-cyan-500',
+      type: 'duration' as const,
+    },
+    {
+      label: 'Max Duration',
+      value: callStats.max_call_duration,
+      icon: TrendingUp,
+      gradient: 'from-red-500 to-rose-500',
+      type: 'duration' as const,
     },
   ];
 
@@ -128,6 +162,10 @@ export default function Dashboard() {
       >
         {statsCards.map((stat, index) => {
           const Icon = stat.icon;
+          const displayValue = stat.type === 'duration'
+            ? formatDuration(stat.value as number | null)
+            : stat.value;
+
           return (
             <motion.div
               key={stat.label}
@@ -140,7 +178,9 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-400">{stat.label}</p>
-                  <p className="mt-2 text-4xl font-bold text-white">{stat.value}</p>
+                  <p className={`mt-2 font-bold text-white ${stat.type === 'duration' ? 'text-3xl' : 'text-4xl'}`}>
+                    {displayValue}
+                  </p>
                 </div>
                 <div className={`w-14 h-14 bg-gradient-to-br ${stat.gradient} rounded-xl flex items-center justify-center shadow-glow-sm`}>
                   <Icon className="w-7 h-7 text-white" />

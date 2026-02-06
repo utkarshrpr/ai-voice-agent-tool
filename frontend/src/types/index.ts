@@ -60,6 +60,7 @@ export interface Call {
   transcript?: TranscriptEntry[];
   structured_data?: StructuredData;
   call_duration?: number;
+  recording_url?: string;
   started_at?: string;
   ended_at?: string;
   created_at: string;

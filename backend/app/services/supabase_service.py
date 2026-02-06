@@ -166,8 +166,8 @@ class SupabaseService:
         response = self.client.table("calls").delete().eq("id", call_id).execute()
         return len(response.data) > 0
 
-    async def get_call_stats(self) -> Dict[str, int]:
-        """Get call statistics (total, completed, in_progress, failed)."""
+    async def get_call_stats(self) -> Dict[str, Any]:
+        """Get call statistics (total, completed, in_progress, failed, duration metrics)."""
         # Get all calls
         all_calls_response = self.client.table("calls").select("status", count="exact").execute()
         total_calls = all_calls_response.count or 0
@@ -184,11 +184,28 @@ class SupabaseService:
         failed_response = self.client.table("calls").select("id", count="exact").eq("status", "failed").execute()
         failed_calls = failed_response.count or 0
 
+        # Get duration statistics (only for calls with duration)
+        duration_response = self.client.table("calls").select("call_duration").not_.is_("call_duration", "null").execute()
+
+        durations = [call["call_duration"] for call in duration_response.data if call.get("call_duration")]
+
+        avg_duration = None
+        min_duration = None
+        max_duration = None
+
+        if durations:
+            avg_duration = sum(durations) // len(durations)  # Average in seconds
+            min_duration = min(durations)
+            max_duration = max(durations)
+
         return {
             "total_calls": total_calls,
             "completed_calls": completed_calls,
             "in_progress_calls": in_progress_calls,
-            "failed_calls": failed_calls
+            "failed_calls": failed_calls,
+            "avg_call_duration": avg_duration,
+            "min_call_duration": min_duration,
+            "max_call_duration": max_duration
         }
 
     # Call Events Methods
