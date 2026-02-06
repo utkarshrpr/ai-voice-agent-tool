@@ -51,7 +51,11 @@ class SupabaseService:
         """Update an agent configuration."""
         data = update_data.model_dump(exclude_unset=True)
 
-        # conversation_config is already a dict after model_dump(), no need to dump again
+        # If conversation_config is present, ensure it's properly serialized
+        if "conversation_config" in data and data["conversation_config"] is not None:
+            # If it's a Pydantic model, convert to dict
+            if hasattr(data["conversation_config"], "model_dump"):
+                data["conversation_config"] = data["conversation_config"].model_dump()
 
         if not data:
             return await self.get_agent_config(agent_id)

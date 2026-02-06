@@ -72,29 +72,66 @@ class RetellService:
     async def update_agent(self, retell_agent_id: str, agent_config: AgentConfig) -> None:
         """
         Update an agent in Retell AI.
-        Note: This updates only the agent properties.
-        To update the prompt, you need to update the LLM separately.
+        This updates both the agent properties and the LLM system prompt.
         """
         async with httpx.AsyncClient() as client:
-            # Update agent properties
-            payload = {
+            # Step 1: Get current agent details to retrieve LLM ID
+            get_response = await client.get(
+                f"{self.BASE_URL}/get-agent/{retell_agent_id}",
+                headers=self.headers,
+                timeout=30.0
+            )
+            get_response.raise_for_status()
+            agent_data = get_response.json()
+
+            # Extract LLM ID from response engine
+            llm_id = None
+            if "response_engine" in agent_data:
+                response_engine = agent_data["response_engine"]
+                if response_engine.get("type") == "retell-llm" and "llm_id" in response_engine:
+                    llm_id = response_engine["llm_id"]
+
+            # Step 2: Update LLM with new prompt and configuration
+            if llm_id:
+                llm_payload = {
+                    "general_prompt": agent_config.system_prompt,
+                    "general_tools": [],
+                    "starting_sentence": "Hi, this is dispatch calling.",
+                    "model": "gpt-4o-mini",
+                    "enable_backchannel": agent_config.conversation_config.enable_backchannel,
+                    "backchannel_frequency": agent_config.conversation_config.backchannel_frequency,
+                    "backchannel_words": ["uh-huh", "yeah", "right", "okay"] if agent_config.conversation_config.enable_filler_words else [],
+                    "responsiveness": agent_config.conversation_config.responsiveness,
+                }
+
+                print(f"Updating Retell LLM {llm_id} with config: {llm_payload}")
+
+                llm_response = await client.patch(
+                    f"{self.BASE_URL}/update-retell-llm/{llm_id}",
+                    json=llm_payload,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                llm_response.raise_for_status()
+                print(f"LLM update response: {llm_response.status_code}")
+
+            # Step 3: Update agent properties
+            agent_payload = {
                 "agent_name": agent_config.name,
                 "voice_id": agent_config.conversation_config.voice_id,
                 "interruption_sensitivity": agent_config.conversation_config.interruption_sensitivity,
             }
 
-            response = await client.patch(
+            print(f"Updating Retell agent {retell_agent_id} with config: {agent_payload}")
+
+            agent_response = await client.patch(
                 f"{self.BASE_URL}/update-agent/{retell_agent_id}",
-                json=payload,
+                json=agent_payload,
                 headers=self.headers,
                 timeout=30.0
             )
-            response.raise_for_status()
-
-            # Note: Updating the LLM (system prompt) would require:
-            # 1. Getting the current agent's LLM ID
-            # 2. Updating that LLM
-            # This is more complex and may not be needed for MVP
+            agent_response.raise_for_status()
+            print(f"Agent update response: {agent_response.status_code}")
 
     async def create_web_call(
         self,

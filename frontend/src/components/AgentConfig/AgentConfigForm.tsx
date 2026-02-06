@@ -148,6 +148,9 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
           <label className="block text-sm font-medium text-gray-300 mb-2">
             System Prompt *
           </label>
+          <p className="text-xs text-accent-primary mb-3">
+            💡 Use dynamic variables: <code className="bg-dark-card px-1.5 py-0.5 rounded">{'{{driver_name}}'}</code> and <code className="bg-dark-card px-1.5 py-0.5 rounded">{'{{load_number}}'}</code> to personalize calls
+          </p>
           <textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
@@ -156,9 +159,6 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
             className="input-field font-mono text-sm"
             placeholder="Enter the system prompt that defines the agent's behavior..."
           />
-          <p className="mt-2 text-xs text-gray-500">
-            This prompt guides the agent's conversation flow and behavior.
-          </p>
         </div>
 
         {/* Conversation Settings */}
