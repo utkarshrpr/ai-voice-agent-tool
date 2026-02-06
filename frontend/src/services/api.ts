@@ -6,6 +6,9 @@ import type {
   Call,
   CallCreate,
   WebCallResponse,
+  LoginCredentials,
+  AuthToken,
+  User,
 } from '../types';
 
 class ApiService {
@@ -96,6 +99,25 @@ class ApiService {
     max_call_duration: number | null;
   }> {
     const response = await this.client.get('/calls/stats');
+    return response.data;
+  }
+
+  // Authentication
+  async login(credentials: LoginCredentials): Promise<AuthToken> {
+    const response = await this.client.post<AuthToken>('/auth/login', credentials);
+    return response.data;
+  }
+
+  async logout(): Promise<void> {
+    await this.client.post('/auth/logout');
+  }
+
+  async getCurrentUser(token: string): Promise<User> {
+    const response = await this.client.get<User>('/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   }
 

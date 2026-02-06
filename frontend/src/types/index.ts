@@ -104,6 +104,26 @@ export interface EmergencyData {
 
 export type StructuredData = CheckInData | EmergencyData;
 
+// Authentication Types
+export interface User {
+  id: string;
+  username: string;
+  full_name?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+export interface AuthToken {
+  access_token: string;
+  token_type: string;
+}
+
 // UI Types
 export interface AlertMessage {
   type: 'success' | 'error' | 'warning' | 'info';

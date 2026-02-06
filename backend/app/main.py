@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import agent_config, calls, webhooks
+from app.routers import agent_config, calls, webhooks, auth
 
 # Configure logging
 logging.basicConfig(
@@ -18,16 +18,16 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
-    logger.info("Starting AI Voice Agent Tool API")
+    logger.info("Starting Relay API")
     yield
     # Shutdown
-    logger.info("Shutting down AI Voice Agent Tool API")
+    logger.info("Shutting down Relay API")
 
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="AI Voice Agent Tool API",
-    description="Backend API for managing AI voice agents and web calls",
+    title="Relay API",
+    description="AI Voice Agents for Logistics - Backend API for managing voice agents and web calls",
     version="1.0.0",
     debug=settings.debug,
     lifespan=lifespan
@@ -43,6 +43,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(agent_config.router, prefix="/api/agents", tags=["Agent Configuration"])
 app.include_router(calls.router, prefix="/api/calls", tags=["Calls"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])

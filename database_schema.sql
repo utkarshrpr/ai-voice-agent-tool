@@ -4,6 +4,17 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Users Table
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Agent Configurations Table
 CREATE TABLE agent_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -54,6 +65,8 @@ CREATE TABLE call_events (
 );
 
 -- Indexes for performance
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_active ON users(is_active);
 CREATE INDEX idx_agent_configs_scenario_type ON agent_configs(scenario_type);
 CREATE INDEX idx_agent_configs_active ON agent_configs(is_active);
 CREATE INDEX idx_calls_agent_config_id ON calls(agent_config_id);
@@ -73,6 +86,9 @@ END;
 $$ language 'plpgsql';
 
 -- Add triggers for updated_at
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_agent_configs_updated_at BEFORE UPDATE ON agent_configs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -182,3 +198,9 @@ TONE:
 -- GRANT ALL ON agent_configs TO authenticated;
 -- GRANT ALL ON calls TO authenticated;
 -- GRANT ALL ON call_events TO authenticated;
+
+-- Sample User
+-- Username: admin
+-- Password: admin123
+INSERT INTO users (username, password_hash, full_name) VALUES
+('admin', '$2b$12$L8rlgh9HMhSgLetepISPbeAWVrvl6OgGT0dV8ybhAzEuD9Fe1iewi', 'Administrator');
