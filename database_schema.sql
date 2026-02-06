@@ -37,6 +37,7 @@ CREATE TABLE calls (
     transcript JSONB,
     structured_data JSONB,
     call_duration INTEGER,
+    recording_url TEXT,
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -58,6 +59,7 @@ CREATE INDEX idx_agent_configs_active ON agent_configs(is_active);
 CREATE INDEX idx_calls_agent_config_id ON calls(agent_config_id);
 CREATE INDEX idx_calls_status ON calls(status);
 CREATE INDEX idx_calls_created_at ON calls(created_at DESC);
+CREATE INDEX idx_calls_recording_url ON calls(recording_url) WHERE recording_url IS NOT NULL;
 CREATE INDEX idx_call_events_call_id ON call_events(call_id);
 CREATE INDEX idx_call_events_created_at ON call_events(created_at DESC);
 
