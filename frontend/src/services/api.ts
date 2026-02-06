@@ -86,6 +86,16 @@ class ApiService {
     await this.client.delete(`/calls/${callId}`);
   }
 
+  async getCallStats(): Promise<{
+    total_calls: number;
+    completed_calls: number;
+    in_progress_calls: number;
+    failed_calls: number;
+  }> {
+    const response = await this.client.get('/calls/stats');
+    return response.data;
+  }
+
   // Health Check
   async healthCheck(): Promise<{ status: string; services: Record<string, boolean> }> {
     const response = await this.client.get('/health');

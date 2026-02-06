@@ -11,6 +11,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<AgentConfig[]>([]);
   const [recentCalls, setRecentCalls] = useState<Call[]>([]);
+  const [callStats, setCallStats] = useState({
+    total_calls: 0,
+    completed_calls: 0,
+    in_progress_calls: 0,
+    failed_calls: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,12 +28,14 @@ export default function Dashboard() {
     try {
       setLoading(true);
       setError(null);
-      const [agentsData, callsData] = await Promise.all([
+      const [agentsData, callsData, statsData] = await Promise.all([
         api.listAgentConfigs(true), // Only active agents
         api.listCalls(undefined, 10), // Last 10 calls
+        api.getCallStats(), // Call statistics
       ]);
       setAgents(agentsData);
       setRecentCalls(callsData);
+      setCallStats(statsData);
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
     } finally {
@@ -48,13 +56,13 @@ export default function Dashboard() {
     },
     {
       label: 'Total Calls',
-      value: recentCalls.length,
+      value: callStats.total_calls,
       icon: Phone,
       gradient: 'from-purple-500 to-pink-500',
     },
     {
       label: 'Completed',
-      value: recentCalls.filter((c) => c.status === 'completed').length,
+      value: callStats.completed_calls,
       icon: CheckCircle,
       gradient: 'from-green-500 to-emerald-500',
     },

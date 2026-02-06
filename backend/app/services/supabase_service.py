@@ -166,6 +166,31 @@ class SupabaseService:
         response = self.client.table("calls").delete().eq("id", call_id).execute()
         return len(response.data) > 0
 
+    async def get_call_stats(self) -> Dict[str, int]:
+        """Get call statistics (total, completed, in_progress, failed)."""
+        # Get all calls
+        all_calls_response = self.client.table("calls").select("status", count="exact").execute()
+        total_calls = all_calls_response.count or 0
+
+        # Get completed calls
+        completed_response = self.client.table("calls").select("id", count="exact").eq("status", "completed").execute()
+        completed_calls = completed_response.count or 0
+
+        # Get in-progress calls
+        in_progress_response = self.client.table("calls").select("id", count="exact").eq("status", "in_progress").execute()
+        in_progress_calls = in_progress_response.count or 0
+
+        # Get failed calls
+        failed_response = self.client.table("calls").select("id", count="exact").eq("status", "failed").execute()
+        failed_calls = failed_response.count or 0
+
+        return {
+            "total_calls": total_calls,
+            "completed_calls": completed_calls,
+            "in_progress_calls": in_progress_calls,
+            "failed_calls": failed_calls
+        }
+
     # Call Events Methods
 
     async def create_call_event(

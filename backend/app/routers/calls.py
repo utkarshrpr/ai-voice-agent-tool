@@ -236,6 +236,20 @@ async def check_transcript_status(call_id: str):
         )
 
 
+@router.get("/stats")
+async def get_call_stats():
+    """Get call statistics (total, completed, in_progress, failed)."""
+    try:
+        db = SupabaseService()
+        stats = await db.get_call_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get call stats: {str(e)}"
+        )
+
+
 @router.get("/", response_model=List[Call])
 async def list_calls(
     agent_config_id: Optional[str] = None,
