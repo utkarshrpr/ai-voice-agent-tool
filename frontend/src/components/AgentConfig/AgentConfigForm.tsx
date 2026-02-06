@@ -266,10 +266,9 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Voice ID
+                Voice
               </label>
-              <input
-                type="text"
+              <select
                 value={conversationConfig.voice_id}
                 onChange={(e) =>
                   setConversationConfig({
@@ -277,8 +276,23 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                     voice_id: e.target.value,
                   })
                 }
-                className="input-field"
-              />
+                className="input-field text-white"
+              >
+                <optgroup label="Male Voices">
+                  <option value="11labs-Adrian">Adrian - Young (American)</option>
+                  <option value="11labs-Anthony">Anthony - Middle Aged (British)</option>
+                  <option value="11labs-Charlie">Charlie - Middle Aged (Australian)</option>
+                  <option value="11labs-Amritanshu">Amritanshu - Middle Aged (Indian)</option>
+                  <option value="11labs-Santiago">Santiago - Middle Aged (Spanish)</option>
+                </optgroup>
+                <optgroup label="Female Voices">
+                  <option value="11labs-Anna">Anna - Young (American)</option>
+                  <option value="11labs-Carola">Carola - Middle Aged (German)</option>
+                  <option value="11labs-Dorothy">Dorothy - Young (British)</option>
+                  <option value="11labs-Monika">Monika - Middle Aged (Indian)</option>
+                  <option value="11labs-Grace">Grace - Middle Aged (American)</option>
+                </optgroup>
+              </select>
             </div>
 
             <div className="flex items-center justify-between glass-card p-3">
