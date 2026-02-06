@@ -89,8 +89,7 @@ ai-voice-agent-tool/
 
 1. Create a new project in [Supabase](https://supabase.com)
 2. Go to SQL Editor and run the contents of `database_schema.sql`
-3. Run the recording migration: `add_recording_url_migration.sql`
-4. Note your Supabase URL and anon key from Project Settings > API
+3. Note your Supabase URL and anon key from Project Settings > API
 
 ### 2. Backend Setup
 
@@ -311,7 +310,6 @@ VITE_API_BASE_URL=http://localhost:8000/api
 **Error: "Failed to connect to Supabase"**
 - Verify `SUPABASE_URL` and `SUPABASE_KEY` are correct
 - Check that database schema has been run
-- Ensure recording migration has been applied
 
 **Error: "Retell agent creation failed"**
 - Verify `RETELL_API_KEY` is valid
@@ -345,7 +343,7 @@ VITE_API_BASE_URL=http://localhost:8000/api
 - Ensure recording is enabled in Retell AI settings
 - Wait 1-2 minutes after call ends for processing
 - Manually sync the call
-- Check that recording_url migration was applied
+- Verify database schema was properly initialized
 
 ### Call Quality Issues
 
