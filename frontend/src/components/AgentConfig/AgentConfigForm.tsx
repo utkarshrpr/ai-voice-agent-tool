@@ -17,6 +17,7 @@ const DEFAULT_CONVERSATION_CONFIG: ConversationConfig = {
   interruption_sensitivity: 0.5,
   responsiveness: 0.8,
   voice_id: '11labs-Adrian',
+  enable_end_call: false,
 };
 
 export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
@@ -223,6 +224,26 @@ export default function AgentConfigForm({ agent, onSuccess, onCancel }: Props) {
                 className="h-4 w-4 text-accent-primary focus:ring-accent-primary border-dark-border rounded"
               />
             </div>
+
+            <div className="flex items-center justify-between glass-card p-3">
+              <label className="text-sm font-medium text-gray-300">
+                Enable Agent End Call
+              </label>
+              <input
+                type="checkbox"
+                checked={conversationConfig.enable_end_call}
+                onChange={(e) =>
+                  setConversationConfig({
+                    ...conversationConfig,
+                    enable_end_call: e.target.checked,
+                  })
+                }
+                className="h-4 w-4 text-accent-primary focus:ring-accent-primary border-dark-border rounded"
+              />
+            </div>
+            <p className="text-xs text-gray-500 -mt-2 ml-1">
+              Allows the agent to programmatically end the call when conversation is complete
+            </p>
 
             <div className="glass-card p-4">
               <label className="block text-sm font-medium text-gray-300 mb-3">

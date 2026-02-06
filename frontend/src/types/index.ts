@@ -6,6 +6,7 @@ export interface ConversationConfig {
   interruption_sensitivity: number;
   responsiveness: number;
   voice_id: string;
+  enable_end_call: boolean;
 }
 
 export interface AgentConfig {

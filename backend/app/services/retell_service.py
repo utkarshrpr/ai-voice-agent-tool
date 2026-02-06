@@ -25,9 +25,17 @@ class RetellService:
         """
         async with httpx.AsyncClient() as client:
             # Step 1: Create Retell LLM with the system prompt
+            general_tools = []
+            if agent_config.conversation_config.enable_end_call:
+                general_tools.append({
+                    "type": "end_call",
+                    "name": "end_call",
+                    "description": "Use this function to end the call when the conversation is complete, the user requests to end the call, or when you have gathered all necessary information."
+                })
+
             llm_payload = {
                 "general_prompt": agent_config.system_prompt,
-                "general_tools": [],
+                "general_tools": general_tools,
                 "starting_sentence": "Hi, this is dispatch calling.",
                 "model": "gpt-4o-mini",
                 "enable_backchannel": agent_config.conversation_config.enable_backchannel,
@@ -93,9 +101,17 @@ class RetellService:
 
             # Step 2: Update LLM with new prompt and configuration
             if llm_id:
+                general_tools = []
+                if agent_config.conversation_config.enable_end_call:
+                    general_tools.append({
+                        "type": "end_call",
+                        "name": "end_call",
+                        "description": "Use this function to end the call when the conversation is complete, the user requests to end the call, or when you have gathered all necessary information."
+                    })
+
                 llm_payload = {
                     "general_prompt": agent_config.system_prompt,
-                    "general_tools": [],
+                    "general_tools": general_tools,
                     "starting_sentence": "Hi, this is dispatch calling.",
                     "model": "gpt-4o-mini",
                     "enable_backchannel": agent_config.conversation_config.enable_backchannel,

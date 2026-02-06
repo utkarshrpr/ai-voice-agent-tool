@@ -11,6 +11,7 @@ class ConversationConfig(BaseModel):
     interruption_sensitivity: float = Field(default=0.5, ge=0.0, le=1.0)
     responsiveness: float = Field(default=0.8, ge=0.0, le=1.0)
     voice_id: str = "11labs-Adrian"
+    enable_end_call: bool = False
 
 
 class AgentConfigBase(BaseModel):
