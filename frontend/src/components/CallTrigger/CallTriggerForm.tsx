@@ -230,7 +230,7 @@ export default function CallTriggerForm({ agents, onCallComplete }: Props) {
             <option value="">Choose an agent...</option>
             {agents.map((agent) => (
               <option key={agent.id} value={agent.id}>
-                {agent.name} ({agent.scenario_type})
+                {agent.name} ({agent.scenario_type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')})
               </option>
             ))}
           </select>
