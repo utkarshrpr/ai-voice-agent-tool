@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Trash2, Clock, Phone, AlertCircle } from 'lucide-react';
+import { RefreshCw, Trash2, Clock, Phone, AlertCircle, Filter, X } from 'lucide-react';
 import CallResultsView from '../components/CallResults/CallResultsView';
 import CallStatusIndicator from '../components/CallTrigger/CallStatusIndicator';
 import api from '../services/api';
@@ -14,10 +14,23 @@ export default function CallHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [driverNameFilter, setDriverNameFilter] = useState<string>('');
+  const [driverNameInput, setDriverNameInput] = useState<string>('');
+  const [createdAfter, setCreatedAfter] = useState<string>('');
+  const [createdBefore, setCreatedBefore] = useState<string>('');
 
   useEffect(() => {
     loadCalls();
   }, []);
+
+  // Reload calls when filters change
+  useEffect(() => {
+    loadCalls();
+  }, [statusFilter, driverNameFilter, createdAfter, createdBefore]);
 
   // Auto-select call if navigated from Dashboard
   useEffect(() => {
@@ -36,7 +49,14 @@ export default function CallHistory() {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.listCalls(undefined, 100);
+      const data = await api.listCalls(
+        undefined,
+        100,
+        statusFilter || undefined,
+        driverNameFilter || undefined,
+        createdAfter || undefined,
+        createdBefore || undefined
+      );
       setCalls(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load call history');
@@ -44,6 +64,20 @@ export default function CallHistory() {
       setLoading(false);
     }
   };
+
+  const clearFilters = () => {
+    setStatusFilter('');
+    setDriverNameFilter('');
+    setDriverNameInput('');
+    setCreatedAfter('');
+    setCreatedBefore('');
+  };
+
+  const handleDriverNameSearch = () => {
+    setDriverNameFilter(driverNameInput);
+  };
+
+  const hasActiveFilters = statusFilter || driverNameFilter || createdAfter || createdBefore;
 
   const handleDelete = async (callId: string) => {
     if (!confirm('Are you sure you want to delete this call record?')) {
@@ -133,6 +167,111 @@ export default function CallHistory() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Filters Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-4"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 text-accent-primary hover:text-accent-secondary transition-colors"
+          >
+            <Filter className="w-4 h-4" />
+            <span className="font-medium">Filters</span>
+            {hasActiveFilters && (
+              <span className="px-2 py-0.5 bg-accent-primary/20 text-accent-primary text-xs rounded-full">
+                Active
+              </span>
+            )}
+          </button>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Clear all
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+            >
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Status
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="input-field text-white"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+
+              {/* Driver Name Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Driver Name
+                </label>
+                <input
+                  type="text"
+                  value={driverNameInput}
+                  onChange={(e) => setDriverNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleDriverNameSearch();
+                    }
+                  }}
+                  placeholder="Search by name (press Enter)..."
+                  className="input-field text-white placeholder-gray-500"
+                />
+              </div>
+
+              {/* Created After Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Created After
+                </label>
+                <input
+                  type="date"
+                  value={createdAfter}
+                  onChange={(e) => setCreatedAfter(e.target.value)}
+                  className="input-field text-white"
+                />
+              </div>
+
+              {/* Created Before Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Created Before
+                </label>
+                <input
+                  type="date"
+                  value={createdBefore}
+                  onChange={(e) => setCreatedBefore(e.target.value)}
+                  className="input-field text-white"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Call List */}

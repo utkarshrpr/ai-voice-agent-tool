@@ -105,6 +105,10 @@ class SupabaseService:
     async def list_calls(
         self,
         agent_config_id: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        driver_name: Optional[str] = None,
+        created_after: Optional[str] = None,
+        created_before: Optional[str] = None,
         limit: int = 50
     ) -> List[Call]:
         """List calls with optional filtering."""
@@ -112,6 +116,18 @@ class SupabaseService:
 
         if agent_config_id:
             query = query.eq("agent_config_id", agent_config_id)
+
+        if status_filter:
+            query = query.eq("status", status_filter)
+
+        if driver_name:
+            query = query.ilike("driver_name", f"%{driver_name}%")
+
+        if created_after:
+            query = query.gte("created_at", created_after)
+
+        if created_before:
+            query = query.lte("created_at", created_before)
 
         response = query.order("created_at", desc=True).limit(limit).execute()
         return [Call(**item) for item in response.data]

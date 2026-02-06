@@ -239,12 +239,23 @@ async def check_transcript_status(call_id: str):
 @router.get("/", response_model=List[Call])
 async def list_calls(
     agent_config_id: Optional[str] = None,
-    limit: int = 50
+    status_filter: Optional[str] = None,
+    driver_name: Optional[str] = None,
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
+    limit: int = 100
 ):
     """List all calls with optional filtering."""
     try:
         db = SupabaseService()
-        calls = await db.list_calls(agent_config_id=agent_config_id, limit=limit)
+        calls = await db.list_calls(
+            agent_config_id=agent_config_id,
+            status_filter=status_filter,
+            driver_name=driver_name,
+            created_after=created_after,
+            created_before=created_before,
+            limit=limit
+        )
         return calls
     except Exception as e:
         raise HTTPException(

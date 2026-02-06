@@ -56,11 +56,22 @@ class ApiService {
     return response.data;
   }
 
-  async listCalls(agentConfigId?: string, limit: number = 50): Promise<Call[]> {
+  async listCalls(
+    agentConfigId?: string,
+    limit: number = 50,
+    statusFilter?: string,
+    driverName?: string,
+    createdAfter?: string,
+    createdBefore?: string
+  ): Promise<Call[]> {
     const response = await this.client.get<Call[]>('/calls/', {
       params: {
         agent_config_id: agentConfigId,
         limit,
+        status_filter: statusFilter,
+        driver_name: driverName,
+        created_after: createdAfter,
+        created_before: createdBefore,
       },
     });
     return response.data;
