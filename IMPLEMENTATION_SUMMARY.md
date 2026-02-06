@@ -1,13 +1,16 @@
-# Implementation Summary
+# Relay - Implementation Summary
+
+**AI Voice Agents for Logistics**
 
 ## Overview
 
-Successfully implemented a complete AI Voice Agent Tool with advanced features for managing AI voice agents, conducting browser-based web calls, and analyzing call results. The application enables non-technical administrators to configure AI voice agents with personalized prompts, trigger web calls, review structured results, and listen to call recordings.
+Successfully implemented Relay, a complete AI voice agent platform with advanced features for managing AI voice agents, conducting browser-based web calls, and analyzing call results. The application enables non-technical administrators to configure AI voice agents with personalized prompts, trigger web calls, review structured results, and listen to call recordings.
 
 ## What Was Built
 
 ### Backend (FastAPI + Python)
-- ✅ Complete REST API with 15 endpoints
+- ✅ Complete REST API with 18+ endpoints
+- ✅ **JWT-based authentication** with secure password hashing (bcrypt)
 - ✅ Supabase integration for data persistence
 - ✅ Retell AI integration for **web calls** (not phone calls)
 - ✅ Anthropic Claude integration for transcript processing
@@ -19,7 +22,10 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 - ✅ Call recording URL storage and retrieval
 
 ### Frontend (React + TypeScript)
-- ✅ Three main pages: Dashboard, Agent Configuration, Call History
+- ✅ **Authentication system** with login/logout and protected routes
+- ✅ Modern dark-themed UI with gradient accents
+- ✅ Four main pages: Login, Dashboard, Agent Configuration, Call History
+- ✅ Sidebar navigation with user info
 - ✅ Agent configuration form with 10 voice options
 - ✅ **Web call trigger with Retell Web SDK integration**
 - ✅ Real-time call controls (mute, end call)
@@ -33,10 +39,12 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 - ✅ Responsive design with Tailwind CSS
 
 ### Database
-- ✅ Three tables: agent_configs, calls, call_events
+- ✅ Four tables: users, agent_configs, calls, call_events
+- ✅ **Users table** with bcrypt password hashing
 - ✅ Recording URL storage field
 - ✅ Proper indexes for performance
 - ✅ Sample data for two scenarios
+- ✅ Default admin user (username: admin)
 - ✅ Auto-updating timestamps
 
 ### Documentation
@@ -47,6 +55,17 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 - ✅ Implementation summary
 
 ## Key Features Implemented
+
+### 0. Authentication & Security
+- **JWT-based authentication** with 24-hour token expiry
+- **Bcrypt password hashing** for secure credential storage
+- Username/password login system
+- Protected routes with automatic redirect
+- Token persistence in localStorage
+- Logout functionality with token cleanup
+- User context management with React Context API
+- Default admin user (username: admin, password: admin123)
+- Auth middleware on protected API endpoints
 
 ### 1. Agent Configuration
 - Create, read, update, delete agents
@@ -125,6 +144,18 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 
 ## Architecture Decisions
 
+### Authentication System
+**Implementation: JWT with bcrypt**
+- JWT tokens with 24-hour expiry for session management
+- bcrypt 4.1.2 for password hashing (Python 3.13 compatibility)
+- passlib CryptContext for password verification
+- python-jose for JWT encoding/decoding
+- Token stored in localStorage on frontend
+- React Context API for auth state management
+- Protected routes with automatic redirect to login
+- Auth middleware validates tokens on API requests
+- Logout clears token and redirects to login
+
 ### Web Calls vs Phone Calls
 **Implementation: Web Calls**
 - Used Retell AI's v2 `create-web-call` endpoint (NOT `create-phone-call`)
@@ -148,18 +179,24 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 - Uses "N/A" instead of null for missing data
 
 ### Database Design
+- Four tables: users, agent_configs, calls, call_events
+- **Users table** with bcrypt password_hash column
 - JSONB columns for flexible configuration and structured data
 - `recording_url` TEXT field for S3 links
 - Separate table for call events (debugging/monitoring)
 - Proper foreign key relationships
 - Partial indexes for better performance
-- Automatic timestamp management
+- Automatic timestamp management with triggers
 
 ### Frontend Architecture
 - Component-based design
 - TypeScript for type safety throughout
+- **Authentication context** with React Context API
+- **Protected routes** with redirect logic
 - API client abstraction layer
 - Reusable components (status indicators, forms, audio player)
+- Sidebar navigation with user info display
+- Modern dark-themed UI with gradient accents
 - Responsive layouts with Tailwind CSS
 - Smooth animations with Framer Motion
 - Event handler optimization with refs
@@ -175,31 +212,38 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 - frontend/tsconfig.json
 - frontend/tsconfig.node.json
 
-### Backend (15)
-- app/main.py (updated - removed call_poller)
-- app/config.py
+### Backend (18)
+- app/main.py (updated - auth router)
+- app/config.py (updated - JWT settings)
 - app/models/__init__.py
 - app/models/agent_config.py (updated - enable_end_call)
 - app/models/call.py (updated - recording_url)
 - app/models/structured_data.py
+- **app/models/auth.py** (NEW - User, Token, TokenData models)
 - app/services/__init__.py
 - app/services/supabase_service.py (updated - stats, recording)
 - app/services/retell_service.py (updated - v2 API, end_call tool)
 - app/services/llm_service.py (updated - edge cases)
+- **app/services/auth_service.py** (NEW - JWT, password hashing)
 - app/routers/__init__.py
 - app/routers/agent_config.py
 - app/routers/calls.py (updated - stats, sync, recording)
 - app/routers/webhooks.py
+- **app/routers/auth.py** (NEW - login, logout, me endpoints)
 - app/utils/__init__.py
 - app/utils/transcript_processor.py
 - app/utils/conversation_manager.py
 
-### Frontend (10)
+### Frontend (15)
 - src/main.tsx
-- src/App.tsx
+- src/App.tsx (updated - auth routing, protected routes)
 - src/index.css
-- src/types/index.ts (updated - recording_url, enable_end_call)
-- src/services/api.ts (updated - stats endpoint)
+- src/types/index.ts (updated - recording_url, enable_end_call, auth types)
+- src/services/api.ts (updated - stats, auth endpoints)
+- **src/contexts/AuthContext.tsx** (NEW - authentication state)
+- **src/components/ProtectedRoute.tsx** (NEW - route protection)
+- **src/components/Layout.tsx** (NEW - sidebar with logout)
+- **src/pages/Login.tsx** (NEW - login page)
 - src/pages/Dashboard.tsx (updated - 6 metrics)
 - src/pages/AgentConfiguration.tsx
 - src/pages/CallHistory.tsx (updated - filters)
@@ -223,7 +267,12 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 - IMPLEMENTATION_SUMMARY.md (this file)
 - problem.md (original requirements)
 
-## API Endpoints (15)
+## API Endpoints (18)
+
+### Authentication (3)
+- `POST /api/auth/login` - Login with username/password (returns JWT token)
+- `POST /api/auth/logout` - Logout (token invalidation client-side)
+- `GET /api/auth/me` - Get current user from token
 
 ### Agent Configuration (5)
 - `POST /api/agents/` - Create agent
@@ -255,7 +304,7 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 2. **Retell AI** - Voice AI platform (web call + recording enabled)
 3. **Anthropic** - Claude API for LLM processing
 
-### Python Packages (9)
+### Python Packages (12)
 - fastapi
 - uvicorn[standard]
 - pydantic
@@ -265,6 +314,9 @@ Successfully implemented a complete AI Voice Agent Tool with advanced features f
 - supabase
 - anthropic
 - python-multipart
+- **passlib[bcrypt]** - Password hashing
+- **python-jose[cryptography]** - JWT tokens
+- **bcrypt==4.1.2** - Python 3.13 compatibility
 
 ### Node Packages (7 main + dev)
 - react
@@ -344,6 +396,15 @@ System prompts support template variables:
 
 ## Testing Checklist
 
+### Authentication
+- ✅ Login with valid credentials returns JWT token
+- ✅ Login with invalid credentials returns 401 error
+- ✅ Protected routes redirect to login when not authenticated
+- ✅ Token persists across page refreshes
+- ✅ Logout clears token and redirects to login
+- ✅ /api/auth/me returns user info with valid token
+- ✅ Already logged-in users redirected from login page
+
 ### Backend
 - ✅ Health check responds correctly
 - ✅ Agent configuration CRUD works
@@ -353,9 +414,14 @@ System prompts support template variables:
 - ✅ Statistics endpoint returns correct counts
 - ✅ Structured data extraction handles edge cases
 - ✅ Database queries perform well
+- ✅ Password hashing with bcrypt works correctly
 
 ### Frontend
+- ✅ Login page displays correctly
 - ✅ All pages load without errors
+- ✅ Sidebar navigation works
+- ✅ Logout button in bottom left corner
+- ✅ User info displayed in sidebar
 - ✅ Agent configuration form with voice dropdown
 - ✅ Dynamic variables hint displayed
 - ✅ Web call can be initiated
@@ -369,6 +435,8 @@ System prompts support template variables:
 - ✅ Smooth animations throughout
 
 ### Integration
+- ✅ Login with admin credentials
+- ✅ Protected routes work correctly
 - ✅ Create agent with dynamic variables
 - ✅ Agent appears in Retell AI dashboard
 - ✅ Trigger web call from dashboard
@@ -381,6 +449,7 @@ System prompts support template variables:
 - ✅ Structured data extracted with edge cases
 - ✅ Call appears in history with filters
 - ✅ Dashboard metrics update correctly
+- ✅ Logout redirects to login page
 
 ## Recent Enhancements
 
@@ -403,6 +472,31 @@ System prompts support template variables:
 - ✅ Removed deprecated documentation files
 - ✅ Merged migration into main schema
 - ✅ Updated README and implementation docs
+
+### Phase 4: Authentication & Branding
+- ✅ JWT-based authentication system
+- ✅ Password hashing with bcrypt
+- ✅ Login/logout functionality
+- ✅ Protected routes with redirects
+- ✅ User context management
+- ✅ Sidebar layout with logout button
+- ✅ Users table in database
+- ✅ Rebranded to "Relay - AI Voice Agents for Logistics"
+- ✅ Updated all documentation and UI
+- ✅ Fixed bcrypt Python 3.13 compatibility (version 4.1.2)
+
+## Known Issues & Solutions
+
+### bcrypt Python 3.13 Compatibility
+**Issue:** passlib with bcrypt 5.0.0 causes `ValueError` on Python 3.13
+**Solution:** Pin bcrypt to version 4.1.2 in requirements.txt
+**Status:** ✅ Fixed
+
+### Login API 500 Error
+**Issue:** Login endpoint returned 500 internal server error
+**Root Cause:** bcrypt compatibility + incorrect password hash in database
+**Solution:** Downgraded bcrypt to 4.1.2, regenerated password hash
+**Status:** ✅ Fixed
 
 ## Success Criteria Met
 

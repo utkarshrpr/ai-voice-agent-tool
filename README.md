@@ -54,11 +54,11 @@ A comprehensive web application for managing AI voice agents and conducting brow
 ## Project Structure
 
 ```
-ai-voice-agent-tool/
+relay/
 ├── backend/
 │   ├── app/
 │   │   ├── models/          # Pydantic data models
-│   │   ├── services/        # Business logic (Supabase, Retell, LLM)
+│   │   ├── services/        # Business logic (Supabase, Retell, LLM, Auth)
 │   │   ├── routers/         # API endpoints
 │   │   ├── utils/           # Helper utilities
 │   │   ├── config.py        # Settings management
@@ -68,6 +68,7 @@ ai-voice-agent-tool/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/      # React components
+│   │   ├── contexts/        # React contexts (Auth)
 │   │   ├── pages/           # Page components
 │   │   ├── services/        # API client
 │   │   └── types/           # TypeScript types
