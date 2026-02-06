@@ -25,6 +25,7 @@ export default function CallTriggerForm({ agents, onCallComplete }: Props) {
 
   const retellClientRef = useRef<RetellWebClient | null>(null);
   const durationIntervalRef = useRef<number | null>(null);
+  const callIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -78,6 +79,7 @@ export default function CallTriggerForm({ agents, onCallComplete }: Props) {
 
       const webCallResponse = await api.createWebCall(callData);
       setCurrentCallId(webCallResponse.call_id);
+      callIdRef.current = webCallResponse.call_id;
 
       const retellClient = new RetellWebClient();
       retellClientRef.current = retellClient;
@@ -90,17 +92,22 @@ export default function CallTriggerForm({ agents, onCallComplete }: Props) {
 
       retellClient.on('call_ended', async () => {
         console.log('Call ended - syncing with Retell AI...');
+        console.log('Current call ID:', callIdRef.current);
         setCallState('ended');
         stopDurationTimer();
 
-        if (currentCallId) {
+        const dbCallId = callIdRef.current;
+        if (dbCallId) {
           try {
-            console.log('Fetching call details from Retell AI...');
-            const result = await api.post(`/calls/${currentCallId}/sync-from-retell`);
-            console.log('Call synced:', result);
-          } catch (err) {
+            console.log('Fetching call details from Retell AI for call:', dbCallId);
+            const result = await api.post(`/calls/${dbCallId}/sync-from-retell`);
+            console.log('Call synced successfully:', result);
+          } catch (err: any) {
             console.error('Failed to sync call from Retell:', err);
+            console.error('Error details:', err.response?.data || err.message);
           }
+        } else {
+          console.warn('No call ID found - cannot sync');
         }
 
         setTimeout(() => {
@@ -158,6 +165,7 @@ export default function CallTriggerForm({ agents, onCallComplete }: Props) {
     setPhoneNumber('');
     setLoadNumber('');
     setCurrentCallId(null);
+    callIdRef.current = null;
     setCallDuration(0);
     setIsMuted(false);
     setError(null);
